@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "36793882908b6cbdd344b5a4840231db",
+    "content-hash": "f5765d6c4a2ebe127794aaeba15f17ac",
     "packages": [
         {
             "name": "brick/math",
@@ -506,6 +506,76 @@
                 }
             ],
             "time": "2025-03-06T22:45:56+00:00"
+        },
+        {
+            "name": "essa/api-tool-kit",
+            "version": "v3.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ahmedesa/laravel-api-tool-kit.git",
+                "reference": "58ff964805c2ea7df2616079f80a7a6696cde4d3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ahmedesa/laravel-api-tool-kit/zipball/58ff964805c2ea7df2616079f80a7a6696cde4d3",
+                "reference": "58ff964805c2ea7df2616079f80a7a6696cde4d3",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/auth": "^11.0|^12.0|^13.0",
+                "illuminate/container": "^11.0|^12.0|^13.0",
+                "illuminate/database": "^11.0|^12.0|^13.0",
+                "illuminate/http": "^11.0|^12.0|^13.0",
+                "illuminate/support": "^11.0|^12.0|^13.0",
+                "php": "^8.2|^8.3|^8.4|^8.5"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^9.0|^10.0|^11.0",
+                "phpunit/phpunit": "^11.5.50",
+                "tightenco/duster": "^3.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Essa\\APIToolKit\\APIToolKitServiceProvider",
+                        "Essa\\APIToolKit\\MacroServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
+                "psr-4": {
+                    "Essa\\APIToolKit\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ahmed Esa",
+                    "email": "ahmedesa6120@gmail.com"
+                }
+            ],
+            "description": "set of tools to build an api with laravel",
+            "homepage": "https://github.com/ahmedesa/laravel-api-tool-kit",
+            "keywords": [
+                "api",
+                "api-generator",
+                "dynamic-pagination",
+                "filters",
+                "laravel",
+                "tools"
+            ],
+            "support": {
+                "issues": "https://github.com/ahmedesa/laravel-api-tool-kit/issues",
+                "source": "https://github.com/ahmedesa/laravel-api-tool-kit/tree/v3.3.0"
+            },
+            "time": "2026-04-17T14:43:08+00:00"
         },
         {
             "name": "fruitcake/php-cors",
@@ -8284,12 +8354,12 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.3"
     },
-    "platform-dev": [],
-    "plugin-api-version": "2.3.0"
+    "platform-dev": {},
+    "plugin-api-version": "2.9.0"
 }
