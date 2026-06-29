@@ -13,12 +13,31 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+            $table->string('employee_id')->nullable()->unique();
+            $table->string('first_name')->nullable();
+            $table->string('middle_name')->nullable();
+            $table->string('last_name')->nullable();
+            $table->string('suffix')->nullable();
+            $table->string('position')->nullable();
+            $table->string('charging_code')->nullable();
+            $table->string('charging_name')->nullable();
+            $table->string('company_code')->nullable();
+            $table->string('company_name')->nullable();
+            $table->string('business_unit_code')->nullable();
+            $table->string('business_unit_name')->nullable();
+            $table->string('department_code')->nullable();
+            $table->string('department_name')->nullable();
+            $table->string('unit_code')->nullable();
+            $table->string('unit_name')->nullable();
+            $table->string('sub_unit_code')->nullable();
+            $table->string('sub_unit_name')->nullable();
+            $table->string('location_code')->nullable();
+            $table->string('location_name')->nullable();
+            $table->string('username')->nullable()->unique();
+            $table->string('password')->nullable();
             $table->rememberToken();
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {
