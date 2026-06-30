@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Role;
+
+class RoleService
+{
+    public function getRoles() {
+        return Role::all();
+    }
+
+    public function createRole(array $data) {
+        return Role::create($data);
+    }
+
+    public function getRolebyId($id) {
+        return Role::findOrFail($id);
+    }
+
+    public function updateRole(array $data, Role $role) {
+        return $role->update($data);
+    }
+
+    public function deleteRole($role) {
+        $role = Role::withTrashed()->find($role);
+
+        if ($role->trashed()) {
+            $role->restore();
+        } else {
+            $role->delete();
+        }
+
+        return $role;
+    }
+}

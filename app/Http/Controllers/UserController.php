@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use AllowDynamicProperties;
 use App\Http\Requests\UserRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Services\UserService;
 use Illuminate\Http\Request;
@@ -16,21 +17,21 @@ class UserController extends Controller
     }
 
     public function index() {
-        return $this->user->getUsers();
+        return UserResource::collection($this->user->getUsers());
     }
 
     public function store(UserRequest $request) {
         $validated = $request->validated();
-        return $this->user->createUser($validated);
+        return new UserResource($this->user->createUser($validated));
     }
 
-    public function show($id) {
-        return $this->user->getUserById($id);
+    public function show(User $user) {
+        return new UserResource($user);
     }
 
     public function update(UserRequest $request, User $user) {
         $validated = $request->validated();
-        return $this->user->updateUser($validated, $user);
+        return new UserResource($this->user->updateUser($validated, $user));
     }
 
     public function destroy($id) {
