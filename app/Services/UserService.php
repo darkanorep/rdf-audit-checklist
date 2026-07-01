@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Hash;
 class UserService
 {
     public function getUsers() {
-        return User::orderBy('updated_at', 'desc')->useFilters()->dynamicPaginate();
+        return User::with(['role'])->orderBy('updated_at', 'desc')->useFilters()->dynamicPaginate();
     }
 
     public function createUser(array $data) {

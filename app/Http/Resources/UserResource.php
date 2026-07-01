@@ -35,7 +35,8 @@ class UserResource extends JsonResource
             'sub_unit_name' => $this->sub_unit_name,
             'location_code' => $this->location_code,
             'location_name' => $this->location_name,
-            'username' => $this->username
+            'username' => $this->username,
+            'role' => $this->role->name,
         ];
     }
 }
