@@ -7,7 +7,7 @@ use App\Models\Role;
 class RoleService
 {
     public function getRoles() {
-        return Role::all();
+        return Role::orderBy('updated_at', 'desc')->useFilters()->dynamicPaginate();
     }
 
     public function createRole(array $data) {
@@ -22,7 +22,7 @@ class RoleService
         return $role->update($data);
     }
 
-    public function deleteRole($role) {
+    public function deleteRole($role) : void {
         $role = Role::withTrashed()->find($role);
 
         if ($role->trashed()) {
@@ -30,7 +30,5 @@ class RoleService
         } else {
             $role->delete();
         }
-
-        return $role;
     }
 }
