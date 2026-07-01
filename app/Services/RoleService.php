@@ -23,7 +23,7 @@ class RoleService
     }
 
     public function deleteRole($role) : void {
-        $role = Role::withTrashed()->find($role);
+        $role = Role::withTrashed()->findOrFail($role);
 
         if ($role->trashed()) {
             $role->restore();

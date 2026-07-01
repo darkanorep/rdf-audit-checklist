@@ -25,7 +25,7 @@ class UserService
     }
 
     public function deleteUser($user): void {
-        $user = User::withTrashed()->find($user);
+        $user = User::withTrashed()->findOrFail($user);
 
         if ($user->trashed()) {
             $user->restore();

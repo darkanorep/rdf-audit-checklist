@@ -21,4 +21,8 @@ class UserFilter extends QueryFilters
         'last_name',
         'username'
     ];
+
+    protected array $relationSearch = [
+        'role' => 'name'
+    ];
 }
