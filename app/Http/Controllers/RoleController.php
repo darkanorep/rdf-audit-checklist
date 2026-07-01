@@ -7,34 +7,52 @@ use App\Http\Requests\RoleRequest;
 use App\Http\Resources\RoleResource;
 use App\Models\Role;
 use App\Services\RoleService;
+use Essa\APIToolKit\Api\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 #[AllowDynamicProperties]
 class RoleController extends Controller
 {
+    use ApiResponse;
+    protected RoleService $roleService;
     public function __construct(RoleService $roleService) {
         $this->roleService = $roleService;
     }
 
     public function index() {
-       return RoleResource::collection($this->roleService->getRoles());
+        return $this->responseSuccess('Roles retrieved successfully.', RoleResource::collection($this->roleService->getRoles()));
     }
 
     public function store(RoleRequest $request) {
         $validated = $request->validated();
-        return new RoleResource($this->roleService->createRole($validated));
+        return $this->responseCreated('Role created successfully.', new RoleResource($this->roleService->createRole($validated)));
     }
 
     public function show($id) {
-        return new RoleResource($this->roleService->getRoleById($id));
+        $role = $this->findUserOrFail($id);
+        if ($role instanceof JsonResponse) return $role;
+
+        return $this->responseSuccess('Role retrieved successfully.', new RoleResource($role));
     }
 
-    public function update(RoleRequest $request, Role $role) {
+    public function update(RoleRequest $request, $id) {
+        $role = $this->findUserOrFail($id);
+        if ($role instanceof JsonResponse) return $role;
+
         $validated = $request->validated();
-        return new RoleResource($this->roleService->updateRole($validated, $role));
+        return $this->responseSuccess('Role updated successfully.', new RoleResource($this->roleService->updateRole($validated, $role)));
     }
 
     public function destroy($id) {
-        return $this->roleService->deleteRole($id);
+        $role = $this->findUserOrFail($id);
+        if ($role instanceof JsonResponse) return $role;
+
+        return $this->responseSuccess('Role status successfully changed.', $this->roleService->deleteRole($role));
+    }
+
+    private function findUserOrFail($id) {
+        $role = $this->roleService->getRolebyId($id);
+        return $role ?: $this->responseNotFound('Role not found.');
     }
 }
