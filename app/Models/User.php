@@ -6,7 +6,6 @@ namespace App\Models;
 use App\Filters\UserFilter;
 use Database\Factories\UserFactory;
 use Essa\APIToolKit\Filters\Filterable;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,5 +27,10 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function role()
+    {
+        return $this->hasOne(Role::class, 'id', 'role_id')->withTrashed();
     }
 }

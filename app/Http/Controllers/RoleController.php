@@ -21,7 +21,13 @@ class RoleController extends Controller
     }
 
     public function index() {
-        return $this->responseSuccess('Roles retrieved successfully.', RoleResource::collection($this->roleService->getRoles()));
+        $users = $this->roleService->getRoles();
+
+        if ($users->isEmpty()) {
+            return $this->responseNotFound('No roles found.');
+        }
+
+        return $this->responseSuccess('Roles retrieved successfully.', RoleResource::collection($users));
     }
 
     public function store(RoleRequest $request) {
@@ -48,7 +54,7 @@ class RoleController extends Controller
         $role = $this->findUserOrFail($id);
         if ($role instanceof JsonResponse) return $role;
 
-        return $this->responseSuccess('Role status successfully changed.', $this->roleService->deleteRole($role));
+        return $this->responseSuccess('Role status successfully changed.', $this->roleService->deleteRole($id));
     }
 
     private function findUserOrFail($id) {

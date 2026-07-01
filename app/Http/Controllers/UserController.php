@@ -20,7 +20,13 @@ class UserController extends Controller
     }
 
     public function index() {
-        return $this->responseSuccess('Users retrieved successfully.', UserResource::collection($this->user->getUsers()));
+        $users = $this->user->getUsers();
+
+        if ($users->isEmpty()) {
+            return $this->responseNotFound('No users found.');
+        }
+
+        return $this->responseSuccess('Users retrieved successfully.', UserResource::collection($users));
     }
 
     public function store(UserRequest $request) {
@@ -47,7 +53,7 @@ class UserController extends Controller
         $user = $this->findUserOrFail($id);
         if ($user instanceof JsonResponse) return $user;
 
-        return $this->responseSuccess('User status successfully changed.', $this->user->deleteUser($user));
+        return $this->responseSuccess('User status successfully changed.', $this->user->deleteUser($id));
     }
 
     private function findUserOrFail($id) {
