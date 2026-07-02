@@ -20,4 +20,6 @@ class Role extends Model
             'permissions' => 'array'
         ];
     }
+
+    const string ADMIN = 'Admin';
 }

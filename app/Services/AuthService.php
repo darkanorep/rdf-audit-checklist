@@ -26,4 +26,11 @@ class AuthService
 
         return $this->responseUnAuthenticated('Invalid credentials');
     }
+
+    public function logout() {
+
+        $user = auth('sanctum')->user();
+        $user->tokens()->delete();
+        return $this->responseSuccess('Logged out successfully.');
+    }
 }
