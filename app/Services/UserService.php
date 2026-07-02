@@ -17,15 +17,16 @@ class UserService
     }
 
     public function getUserById($id) {
-        return User::find($id);
+        return User::withTrashed()->findOrFail($id);
     }
 
     public function updateUser(array $data, User $user) {
-        return $user->update($data);
+        $user->update($data);
+        return $user->fresh();
     }
 
     public function deleteUser($user): void {
-        $user = User::withTrashed()->findOrFail($user);
+        $user = User::withTrashed()->find($user);
 
         if ($user->trashed()) {
             $user->restore();

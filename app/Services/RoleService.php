@@ -15,7 +15,7 @@ class RoleService
     }
 
     public function getRolebyId($id) {
-        return Role::findOrFail($id);
+        return Role::withTrashed()->findOrFail($id);
     }
 
     public function updateRole(array $data, Role $role) {
@@ -24,7 +24,7 @@ class RoleService
     }
 
     public function deleteRole($role) : void {
-        $role = Role::withTrashed()->findOrFail($role);
+        $role = Role::withTrashed()->find($role);
 
         if ($role->trashed()) {
             $role->restore();

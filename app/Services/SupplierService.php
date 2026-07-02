@@ -24,7 +24,7 @@ class SupplierService
 
     public function deleteSupplier(int $id): void
     {
-        $supplier = Supplier::withTrashed()->findOrFail($id);
+        $supplier = Supplier::withTrashed()->find($id);
 
         if ($supplier->trashed()) {
             $supplier->restore();

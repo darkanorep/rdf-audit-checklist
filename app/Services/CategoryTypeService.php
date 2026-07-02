@@ -18,7 +18,7 @@ class CategoryTypeService
     }
 
     public function getCategoryTypebyId($id) {
-        return CategoryType::findOrFail($id);
+        return CategoryType::withTrashed()->findOrFail($id);
     }
 
     public function updateCategoryType(array $data, CategoryType $categoryType) {
@@ -27,7 +27,7 @@ class CategoryTypeService
     }
 
     public function deleteCategoryType($categoryType) : void {
-        $categoryType = CategoryType::withTrashed()->findOrFail($categoryType);
+        $categoryType = CategoryType::withTrashed()->find($categoryType);
 
         if ($categoryType->trashed()) {
             $categoryType->restore();
