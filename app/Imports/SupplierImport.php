@@ -12,17 +12,17 @@ class SupplierImport implements ToModel, WithHeadingRow
     {
         return new Supplier([
             'name'             => $row['business_name'] ?? null,
-            'contact_person'   => $row['contact_person']           ?? null,
-            'address'          => $row['business_address']         ?? null,
-            'tin_no'           => $row['tin']                      ?? null,
-            'contact_no'       => $this->splitToJson($row['contact'] ?? null, '/'),
-            'products_offered' => $this->splitToJson($row['products_offered'] ?? null, ','),
-            'email'            => $row['e_mail_address']           ?? null,
-            'remarks'          => $row['remarks']                  ?? null,
+            'contact_person'   => $this->splitToArray($row['contact_person'] ?? null, '/'),
+            'address'          => $row['business_address'] ?? null,
+            'tin_no'           => $row['tin'] ?? null,
+            'contact_no'       => $this->splitToArray($row['contact'] ?? null, '/'),
+            'products_offered' => $this->splitToArray($row['products_offered'] ?? null, ','),
+            'email'            => $row['e_mail_address'] ?? null,
+            'remarks'          => $row['remarks'] ?? null,
         ]);
     }
 
-    private function splitToJson(?string $value, string $delimiter): ?string
+    private function splitToArray(?string $value, string $delimiter): ?array
     {
         if (empty($value)) {
             return null;
@@ -31,6 +31,6 @@ class SupplierImport implements ToModel, WithHeadingRow
         $parts = array_map('trim', explode($delimiter, $value));
         $parts = array_filter($parts, fn ($v) => $v !== '');
 
-        return json_encode(array_values($parts));
+        return array_values($parts);
     }
 }
