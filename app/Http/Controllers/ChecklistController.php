@@ -25,7 +25,7 @@ class ChecklistController extends Controller
             return $this->responseNotFound('No Checklists found.');
         }
 
-        return $this->responseSuccess('Checklists retrieved successfully.', ChecklistResource::collection($checklists));
+        return ChecklistResource::collection($checklists);
     }
 
     public function store(ChecklistRequest $request) {

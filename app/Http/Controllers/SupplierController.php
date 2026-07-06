@@ -24,7 +24,7 @@ class SupplierController extends Controller
             return $this->responseNotFound('No suppliers found.');
         }
 
-        return $this->responseSuccess('Suppliers retrieved successfully.', $suppliers);
+        return SupplierResource::collection($suppliers);
     }
 
     public function store(SupplierRequest $request) {

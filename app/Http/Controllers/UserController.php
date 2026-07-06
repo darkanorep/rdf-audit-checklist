@@ -24,7 +24,7 @@ class UserController extends Controller
             return $this->responseNotFound('No users found.');
         }
 
-        return $this->responseSuccess('Users retrieved successfully.', UserResource::collection($users));
+        return UserResource::collection($users);
     }
 
     public function store(UserRequest $request) {

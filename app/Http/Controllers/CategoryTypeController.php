@@ -23,7 +23,7 @@ class CategoryTypeController extends Controller
             return $this->responseNotFound('No Category Types found.');
         }
 
-        return $this->responseSuccess('Category Types retrieved successfully.', CategoryTypeResource::collection($categoryTypes));
+        return CategoryTypeResource::collection($categoryTypes);
     }
 
     public function store(CategoryTypeRequest $request) {

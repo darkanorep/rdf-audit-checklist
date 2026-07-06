@@ -25,7 +25,7 @@ class RoleController extends Controller
             return $this->responseNotFound('No roles found.');
         }
 
-        return $this->responseSuccess('Roles retrieved successfully.', RoleResource::collection($users));
+        return RoleResource::collection($users);
     }
 
     public function store(RoleRequest $request) {
