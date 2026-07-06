@@ -8,6 +8,7 @@ use App\Services\SupplierService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class SupplierController extends Controller
 {
@@ -17,14 +18,16 @@ class SupplierController extends Controller
         $this->supplierService = $supplierService;
     }
 
+
     public function index() {
         $suppliers = $this->supplierService->getSuppliers();
 
         if ($suppliers->isEmpty()) {
             return $this->responseNotFound('No suppliers found.');
         }
-
-        return SupplierResource::collection($suppliers);
+        return $suppliers instanceof LengthAwarePaginator
+            ? $suppliers->through(fn($item) => new SupplierResource($item))
+            : $this->responseSuccess('Suppliers retrieved successfully.', SupplierResource::collection($suppliers));
     }
 
     public function store(SupplierRequest $request) {

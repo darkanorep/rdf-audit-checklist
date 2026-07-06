@@ -8,6 +8,7 @@ use App\Http\Resources\RoleResource;
 use App\Services\RoleService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 #[AllowDynamicProperties]
 class RoleController extends Controller
@@ -19,13 +20,15 @@ class RoleController extends Controller
     }
 
     public function index() {
-        $users = $this->roleService->getRoles();
+        $roles = $this->roleService->getRoles();
 
-        if ($users->isEmpty()) {
+        if ($roles->isEmpty()) {
             return $this->responseNotFound('No roles found.');
         }
 
-        return RoleResource::collection($users);
+        return $roles instanceof LengthAwarePaginator
+            ? $roles->through(fn($item) => new RoleResource($item))
+            : $this->responseSuccess('Roles retrieved successfully.', RoleResource::collection($roles));
     }
 
     public function store(RoleRequest $request) {

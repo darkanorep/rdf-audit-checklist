@@ -7,6 +7,7 @@ use App\Http\Resources\CategoryTypeResource;
 use App\Services\CategoryTypeService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class CategoryTypeController extends Controller
 {
@@ -23,7 +24,9 @@ class CategoryTypeController extends Controller
             return $this->responseNotFound('No Category Types found.');
         }
 
-        return CategoryTypeResource::collection($categoryTypes);
+        return $categoryTypes instanceof LengthAwarePaginator
+            ? $categoryTypes->through(fn($item) => new CategoryTypeResource($item))
+            : $this->responseSuccess('Category Types retrieved successfully.', CategoryTypeResource::collection($categoryTypes));
     }
 
     public function store(CategoryTypeRequest $request) {

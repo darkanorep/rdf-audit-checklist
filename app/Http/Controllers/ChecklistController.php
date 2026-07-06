@@ -8,6 +8,7 @@ use App\Http\Resources\ChecklistResource;
 use App\Services\ChecklistService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 #[AllowDynamicProperties]
 class ChecklistController extends Controller
@@ -25,7 +26,9 @@ class ChecklistController extends Controller
             return $this->responseNotFound('No Checklists found.');
         }
 
-        return ChecklistResource::collection($checklists);
+        return $checklists instanceof LengthAwarePaginator
+            ? $checklists->through(fn($item) => new ChecklistResource($item))
+            : $this->responseSuccess('Checklists retrieved successfully.', ChecklistResource::collection($checklists));
     }
 
     public function store(ChecklistRequest $request) {

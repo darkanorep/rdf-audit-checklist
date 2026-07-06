@@ -8,6 +8,7 @@ use App\Http\Resources\UserResource;
 use App\Services\UserService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 #[AllowDynamicProperties]
 class UserController extends Controller
@@ -23,8 +24,9 @@ class UserController extends Controller
         if ($users->isEmpty()) {
             return $this->responseNotFound('No users found.');
         }
-
-        return UserResource::collection($users);
+        return $users instanceof LengthAwarePaginator
+            ? $users->through(fn($item) => new UserResource($item))
+            : $this->responseSuccess('Users retrieved successfully.', UserResource::collection($users));
     }
 
     public function store(UserRequest $request) {
