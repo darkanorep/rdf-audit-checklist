@@ -58,4 +58,8 @@ class SupplierController extends Controller
         $supplier = $this->supplierService->getSupplierbyId($id);
         return $supplier ?: $this->responseNotFound('Supplier not found.');
     }
+
+    public function import(Request $request) {
+        $this->supplierService->importSupplier($request);
+    }
 }

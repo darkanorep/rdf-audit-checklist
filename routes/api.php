@@ -13,6 +13,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::group(['middleware' => 'can:admin'], function () {
         Route::apiResource('users', UserController::class);
         Route::apiResource('roles', RoleController::class);
+        Route::post('suppliers/import', [SupplierController::class, 'import']);
         Route::apiResource('suppliers', SupplierController::class);
         Route::apiResource('category-types', CategoryTypeController::class);
     });
