@@ -5,11 +5,9 @@ namespace App\Http\Controllers;
 use AllowDynamicProperties;
 use App\Http\Requests\RoleRequest;
 use App\Http\Resources\RoleResource;
-use App\Models\Role;
 use App\Services\RoleService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 #[AllowDynamicProperties]
 class RoleController extends Controller

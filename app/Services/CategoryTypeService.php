@@ -6,9 +6,6 @@ use App\Models\CategoryType;
 
 class CategoryTypeService
 {
-    /**
-     * Create a new class instance.
-     */
     public function getRoles() {
         return CategoryType::orderBy('updated_at', 'desc')->useFilters()->dynamicPaginate();
     }
