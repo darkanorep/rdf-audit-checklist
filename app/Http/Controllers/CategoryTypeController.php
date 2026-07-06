@@ -7,7 +7,6 @@ use App\Http\Resources\CategoryTypeResource;
 use App\Services\CategoryTypeService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class CategoryTypeController extends Controller
 {

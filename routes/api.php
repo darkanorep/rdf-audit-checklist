@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CategoryTypeController;
+use App\Http\Controllers\ChecklistController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
@@ -16,6 +17,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('suppliers/import', [SupplierController::class, 'import']);
         Route::apiResource('suppliers', SupplierController::class);
         Route::apiResource('category-types', CategoryTypeController::class);
+        Route::apiResource('checklists', ChecklistController::class);
     });
 
     Route::post('logout', [AuthController::class, 'logout']);

@@ -5,11 +5,9 @@ namespace App\Http\Controllers;
 use AllowDynamicProperties;
 use App\Http\Requests\UserRequest;
 use App\Http\Resources\UserResource;
-use App\Models\User;
 use App\Services\UserService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 #[AllowDynamicProperties]
 class UserController extends Controller
