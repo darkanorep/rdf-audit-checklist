@@ -6,7 +6,7 @@ namespace App\Filters;
 
 use Essa\APIToolKit\Filters\QueryFilters;
 
-class RoleFilter extends BaseFilter
+class CategoryTypeFilter extends BaseFilter
 {
     protected array $allowedFilters = ['name'];
 

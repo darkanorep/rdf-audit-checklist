@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Supplier;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierService
 {
@@ -31,5 +32,10 @@ class SupplierService
         } else {
             $supplier->delete();
         }
+    }
+
+    public function importSupplier($data): void
+    {
+        Excel::import(new \App\Imports\SupplierImport, $data['file']);
     }
 }
