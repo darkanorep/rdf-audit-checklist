@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SupplierRequest extends FormRequest
 {
@@ -23,13 +24,13 @@ class SupplierRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required',
+            'name' => ['required', Rule::unique('suppliers', 'name')->ignore($this->supplier)],
             'contact_person' => 'required|array',
             'address' => 'required',
             'tin_no' => 'nullable',
             'contact_no' => 'required|array',
             'products_offered' => 'nullable|array',
-            'email' => 'required|email',
+            'email' => ['required', 'email', Rule::unique('suppliers', 'email')->ignore($this->supplier)],
             'remarks' => 'nullable',
         ];
     }
