@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('checklists', function (Blueprint $table) {
             $table->id();
             $table->string('title');
-            $table->json('item')->nullable();
+            $table->json('checklist')->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

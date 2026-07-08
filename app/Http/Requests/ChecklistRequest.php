@@ -24,8 +24,11 @@ class ChecklistRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', Rule::unique('checklists', 'title')->ignore($this->checklist)],
-            'item' => ['required', 'array'],
+            'title' => [
+                'required',
+                Rule::unique('checklists', 'title')->ignore($this->route('checklist')),
+            ],
+            'checklist' => ['required'],
         ];
     }
 }
