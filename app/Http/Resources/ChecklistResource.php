@@ -18,6 +18,8 @@ class ChecklistResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'checklist' => $this->checklist,
+            'is_published' => $this->is_published,
+            'published_at' => $this->published_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at

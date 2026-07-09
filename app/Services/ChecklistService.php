@@ -31,4 +31,36 @@ class ChecklistService
             $checklist->delete();
         }
     }
+
+    public function publishChecklist(array $data, Checklist $checklist) {
+        $checklist->update(array_merge($data, [
+            'is_published' => true,
+            'published_at' => now(),
+        ]));
+
+        return $checklist->fresh();
+    }
+
+    public function getChecklistForUser(int $userId): ?Checklist
+    {
+        $checklist = Checklist::withTrashed()
+            ->get()
+            ->first(function ($checklist) use ($userId) {
+                return collect($checklist->checklist)
+                    ->contains(fn ($section) => ($section['user_id'] ?? null) == $userId);
+            });
+
+        if (!$checklist) {
+            return null;
+        }
+
+        $filtered = collect($checklist->checklist)
+            ->filter(fn ($section) => ($section['user_id'] ?? null) == $userId)
+            ->values()
+            ->all();
+
+        $checklist->setAttribute('checklist', $filtered);
+
+        return $checklist;
+    }
 }
