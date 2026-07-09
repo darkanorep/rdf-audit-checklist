@@ -17,8 +17,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('suppliers/import', [SupplierController::class, 'import']);
         Route::apiResource('suppliers', SupplierController::class);
         Route::apiResource('category-types', CategoryTypeController::class);
+        Route::post('checklists/{checklist}/publish', [ChecklistController::class, 'publish']);
         Route::apiResource('checklists', ChecklistController::class);
     });
+
+    Route::get('published-checklist/mine', [ChecklistController::class, 'showPublishedPerUser']);
 
     Route::post('logout', [AuthController::class, 'logout']);
 });
