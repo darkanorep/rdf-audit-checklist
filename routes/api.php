@@ -9,13 +9,9 @@ use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login']);
-Route::middleware([
-//    'auth:sanctum'
-])->group(function () {
+Route::middleware(['auth:sanctum'])->group(function () {
 
-    Route::group([
-//        'middleware' => 'can:admin'
-    ], function () {
+    Route::group(['middleware' => 'can:admin'], function () {
         Route::apiResource('users', UserController::class);
         Route::apiResource('roles', RoleController::class);
         Route::post('suppliers/import', [SupplierController::class, 'import']);
