@@ -31,6 +31,7 @@ class SupplierRequest extends FormRequest
             'contact_no' => 'required|array',
             'products_offered' => 'nullable|array',
             'email' => ['required', 'email', Rule::unique('suppliers', 'email')->ignore($this->supplier)],
+            'location' => 'required|string',
             'remarks' => 'nullable',
         ];
     }
