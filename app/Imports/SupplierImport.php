@@ -18,6 +18,7 @@ class SupplierImport implements ToModel, WithHeadingRow
             'contact_no'       => $this->splitToArray($row['contact'] ?? null, '/'),
             'products_offered' => $this->splitToArray($row['products_offered'] ?? null, ','),
             'email'            => $row['e_mail_address'] ?? null,
+            'location'         => $row['location'] ?? null,
             'remarks'          => $row['remarks'] ?? null,
         ]);
     }
