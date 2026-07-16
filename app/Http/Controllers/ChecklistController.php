@@ -60,29 +60,29 @@ class ChecklistController extends Controller
         return $this->responseSuccess('Checklist status successfully changed.', $this->checklistService->deleteChecklist($id));
     }
 
-    public function publish(ChecklistRequest $request, $id)
-    {
-        $checklist = $this->findUserOrFail($id);
-        if ($checklist instanceof JsonResponse) return $checklist;
+//    public function publish(ChecklistRequest $request, $id)
+//    {
+//        $checklist = $this->findUserOrFail($id);
+//        if ($checklist instanceof JsonResponse) return $checklist;
+//
+//        $validated = $request->validated();
+//
+//        return $this->responseSuccess(
+//            'Checklist published successfully.',
+//            new ChecklistResource($this->checklistService->publishChecklist($validated, $checklist))
+//        );
+//    }
 
-        $validated = $request->validated();
-
-        return $this->responseSuccess(
-            'Checklist published successfully.',
-            new ChecklistResource($this->checklistService->publishChecklist($validated, $checklist))
-        );
-    }
-
-    public function showPublishedPerUser() {
-        $userId = auth()->id();
-        $checklist = $this->checklistService->getChecklistForUser($userId);
-
-        if (!$checklist) {
-            return $this->responseNotFound('No published checklist found for the user.');
-        }
-
-        return $this->responseSuccess('Published checklist retrieved successfully.', new PublishedChecklistResource($checklist));
-    }
+//    public function showPublishedPerUser() {
+//        $userId = auth()->id();
+//        $checklist = $this->checklistService->getChecklistForUser($userId);
+//
+//        if (!$checklist) {
+//            return $this->responseNotFound('No published checklist found for the user.');
+//        }
+//
+//        return $this->responseSuccess('Published checklist retrieved successfully.', new PublishedChecklistResource($checklist));
+//    }
 
     private function findUserOrFail($id) {
         $checklist = $this->checklistService->getChecklistById($id);
