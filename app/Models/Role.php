@@ -22,4 +22,5 @@ class Role extends Model
     }
 
     const string ADMIN = 'Admin';
+    const string ADMIN_AUDIT = 'Admin-Audit';
 }

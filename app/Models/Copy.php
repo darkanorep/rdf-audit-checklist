@@ -2,16 +2,15 @@
 
 namespace App\Models;
 
-use App\Filters\ChecklistFilter;
-use Essa\APIToolKit\Filters\Filterable;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Guarded([])]
-class Checklist extends Model
+class Copy extends Model
 {
-    use SoftDeletes, Filterable;
+    use SoftDeletes;
+
     protected function casts(): array
     {
         return [
@@ -19,6 +18,6 @@ class Checklist extends Model
             'information' => 'array'
         ];
     }
-
-    protected string $default_filters = ChecklistFilter::class;
 }
+
+
