@@ -28,6 +28,7 @@ class ChecklistRequest extends FormRequest
                 'required',
                 Rule::unique('checklists', 'title')->ignore($this->route('checklist')),
             ],
+            'information' => ['nullable'],
             'checklist' => ['required'],
         ];
     }

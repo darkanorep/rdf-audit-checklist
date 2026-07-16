@@ -15,7 +15,8 @@ class Checklist extends Model
     protected function casts(): array
     {
         return [
-            'checklist' => 'array'
+            'checklist' => 'array',
+            'information' => 'array'
         ];
     }
 
