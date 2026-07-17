@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use AllowDynamicProperties;
 use App\Http\Requests\ChecklistRequest;
+use App\Http\Requests\CopyRequest;
 use App\Http\Resources\ChecklistResource;
 use App\Services\CopyService;
 use Essa\APIToolKit\Api\ApiResponse;
@@ -18,7 +19,7 @@ class CopyController extends Controller
         $this->copyService = $copyService;
     }
 
-    public function publish(ChecklistRequest $request)
+    public function publish(CopyRequest $request)
     {
         $validated = $request->validated();
         $this->copyService->publish($validated);
