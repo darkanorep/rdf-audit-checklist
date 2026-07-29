@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => 'Asia/Manila',
 
     /*
     |--------------------------------------------------------------------------
@@ -98,6 +98,9 @@ return [
     'cipher' => 'AES-256-CBC',
 
     'key' => env('APP_KEY'),
+    'imagekit_public_key' => env('IMAGEKIT_PUBLIC_KEY'),
+    'imagekit_private_key' => env('IMAGEKIT_PRIVATE_KEY'),
+    'imagekit_url_endpoint' => env('IMAGEKIT_URL_ENDPOINT'),
 
     'previous_keys' => [
         ...array_filter(

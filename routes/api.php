@@ -3,6 +3,7 @@
 use App\Http\Controllers\CategoryTypeController;
 use App\Http\Controllers\ChecklistController;
 use App\Http\Controllers\CopyController;
+use App\Http\Controllers\ResponseController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
@@ -23,6 +24,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     Route::get('published-checklist/mine', [CopyController::class, 'showPublishedPerUser']);
+    Route::resource('published-checklist/mine/response', ResponseController::class);
 
     Route::post('logout', [AuthController::class, 'logout']);
 });

@@ -35,6 +35,6 @@ class CopyController extends Controller
             return $this->responseNotFound('No published checklist found for the user.');
         }
 
-        return $this->responseSuccess('Published checklist retrieved successfully.', new ChecklistResource($checklist));
+        return $this->responseSuccess('Published checklist retrieved successfully.', ChecklistResource::collection($checklist));
     }
 }
