@@ -9,6 +9,7 @@ use App\Http\Resources\ChecklistResource;
 use App\Services\CopyService;
 use Essa\APIToolKit\Api\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 #[AllowDynamicProperties]
 class CopyController extends Controller
@@ -27,14 +28,19 @@ class CopyController extends Controller
         return $this->responseSuccess('Checklist published successfully.');
     }
 
-    public function showPublishedPerUser() {
+    public function showPublishedPerUser(Request $request)
+    {
         $userId = auth()->id();
-        $checklist = $this->copyService->getChecklistForUser($userId);
+        $perPage = $request->integer('per_page', 15);
 
-        if (!$checklist) {
+        $checklists = $this->copyService->getChecklistForUser($userId, $perPage);
+
+        if ($checklists->isEmpty()) {
             return $this->responseNotFound('No published checklist found for the user.');
         }
 
-        return $this->responseSuccess('Published checklist retrieved successfully.', ChecklistResource::collection($checklist));
+        return $checklists instanceof LengthAwarePaginator
+            ? $checklists->through(fn ($item) => new ChecklistResource($item))
+            : $this->responseSuccess('Published checklist retrieved successfully.', ChecklistResource::collection($checklists));
     }
 }

@@ -55,25 +55,25 @@ class CopyService
         throw new RuntimeException('Failed to publish checklist: could not generate a unique reference number.');
     }
 
-    public function getChecklistForUser(int $userId)
+    public function getChecklistForUser(int $userId, int $perPage = 15)
     {
-        return Copy::withTrashed()
-            ->get()
-            ->filter(function ($copy) use ($userId) {
-                return collect($copy->checklist)
-                    ->contains(fn ($section) => ($section['user_id'] ?? null) == $userId);
-            })
-            ->map(function ($copy) use ($userId) {
-                $filteredSections = collect($copy->checklist)
+        $paginator = Copy::withTrashed()
+            ->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)])
+            ->paginate($perPage);
+
+        $paginator->getCollection()->transform(function (Copy $copy) use ($userId) {
+            $copy->setAttribute(
+                'checklist',
+                collect($copy->checklist)
                     ->filter(fn ($section) => ($section['user_id'] ?? null) == $userId)
                     ->values()
-                    ->all();
+                    ->all()
+            );
 
-                $copy->setAttribute('checklist', $filteredSections);
+            return $copy;
+        });
 
-                return $copy;
-            })
-            ->values();
+        return $paginator;
     }
 
     private function isDuplicateReferenceNo(QueryException $e): bool

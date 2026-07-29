@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Filters\CopyFilter;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -10,6 +11,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Copy extends Model
 {
     use SoftDeletes;
+
+    protected string $default_filters = CopyFilter::class;
 
     protected function casts(): array
     {
