@@ -41,7 +41,8 @@ class ResponseRequest extends FormRequest
             'content'             => ['required', 'array', 'min:1'],
             'is_completed'        => ['required', 'boolean'],
             'image'               => ['nullable', 'array'],
-            'image.*'             => ['nullable', 'array']
+            'image.*'             => ['nullable', 'array'],
+            'batch_no'          => ['nullable'],
         ];
     }
 }

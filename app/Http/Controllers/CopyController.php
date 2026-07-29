@@ -32,8 +32,12 @@ class CopyController extends Controller
     {
         $userId = auth()->id();
         $perPage = $request->integer('per_page', 15);
+        $isAnswered = $request->filled('is_answered')
+            ? filter_var($request->input('is_answered'), FILTER_VALIDATE_INT)
+            : null;
 
-        $checklists = $this->copyService->getChecklistForUser($userId, $perPage);
+
+        $checklists = $this->copyService->getChecklistForUser($userId, $perPage, $isAnswered);
 
         if ($checklists->isEmpty()) {
             return $this->responseNotFound('No published checklist found for the user.');

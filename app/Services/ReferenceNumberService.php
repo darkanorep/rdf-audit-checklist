@@ -12,8 +12,10 @@ class ReferenceNumberService
      * Location => prefix map. Add new locations here only.
      */
     private const PREFIX_MAP = [
-        'central_depot' => 'DPT',
-        'feedmill'      => 'FML',
+//        'central_depot' => 'DPT',
+//        'feedmill'      => 'FML',
+        'Central Depot' => 'DPT',
+        'Feedmill'      => 'FML',
     ];
 
     private const PAD_LENGTH = 4;
