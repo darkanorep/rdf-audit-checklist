@@ -13,11 +13,6 @@ class Checklist extends Model
 {
     use SoftDeletes, Filterable;
 
-    protected $fillable = [
-        'information',
-        'reference_number',
-    ];
-
     protected function casts(): array
     {
         return [

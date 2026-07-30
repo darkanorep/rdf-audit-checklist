@@ -28,6 +28,21 @@ class CopyController extends Controller
         return $this->responseSuccess('Checklist published successfully.');
     }
 
+    public function show(int $id, Request $request)
+    {
+        $isAnswered = $request->filled('is_answered')
+            ? filter_var($request->input('is_answered'), FILTER_VALIDATE_INT)
+            : null;
+
+        $copy = $this->copyService->getChecklistById($id, null, $isAnswered);
+
+        if (!$copy) {
+            return $this->responseNotFound('Checklist not found.');
+        }
+
+        return $this->responseSuccess('Checklist retrieved successfully.', new ChecklistResource($copy));
+    }
+
     public function showPublishedPerUser(Request $request)
     {
         $userId = auth()->id();
@@ -37,7 +52,7 @@ class CopyController extends Controller
             : null;
 
 
-        $checklists = $this->copyService->getChecklistForUser($userId, $perPage, $isAnswered);
+        $checklists = $this->copyService->getChecklist($userId, $perPage, $isAnswered);
 
         if ($checklists->isEmpty()) {
             return $this->responseNotFound('No published checklist found for the user.');
@@ -47,4 +62,22 @@ class CopyController extends Controller
             ? $checklists->through(fn ($item) => new ChecklistResource($item))
             : $this->responseSuccess('Published checklist retrieved successfully.', ChecklistResource::collection($checklists));
     }
+
+//    public function showPublishedForAdmin(Request $request)
+//    {
+//        $perPage = $request->integer('per_page', 15);
+//        $isAnswered = $request->filled('is_answered')
+//            ? filter_var($request->input('is_answered'), FILTER_VALIDATE_INT)
+//            : null;
+//
+//        $checklists = $this->copyService->getChecklist(null, $perPage, $isAnswered);
+//
+//        if ($checklists->isEmpty()) {
+//            return $this->responseNotFound('No published checklist found.');
+//        }
+//
+//        return $checklists instanceof LengthAwarePaginator
+//            ? $checklists->through(fn ($item) => new ChecklistResource($item))
+//            : $this->responseSuccess('Published checklist retrieved successfully.', ChecklistResource::collection($checklists));
+//    }
 }

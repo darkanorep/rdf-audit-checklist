@@ -52,103 +52,50 @@ class CopyService
         throw new RuntimeException('Failed to publish checklist: could not generate a unique reference number.');
     }
 
-    public function getChecklistForUser(int $userId, int $perPage = 15, ?int $isAnswered = null)
+    /**
+     * Paginated checklist listing.
+     *
+     * - Pass $userId to scope results to a single user (copies assigned to
+     *   them, their own responses, sections owned by them).
+     * - Pass $userId = null for the admin view: all copies, all users'
+     *   responses, every section regardless of owner.
+     */
+    public function getChecklist(?int $userId = null, int $perPage = 15, ?int $isAnswered = null)
     {
         $paginator = Copy::withTrashed()
-            ->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)])
+            ->when($userId !== null, function ($query) use ($userId) {
+                $query->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)]);
+            })
             ->paginate($perPage);
 
         $copyIds = $paginator->getCollection()->pluck('id');
 
-        // Single query for this user's responses across the whole page of
-        // copies (drafts included), grouped by copy_id, to avoid N+1 when
-        // merging answers below.
+        // Grouped by copy_id then user_id regardless of mode — cheap even in
+        // user mode (single inner group), and required in admin mode to avoid
+        // cross-user answer collisions on (name, category) keys.
         $answersByCopy = Response::query()
             ->whereIn('copy_id', $copyIds)
-            ->where('user_id', $userId)
+            ->when($userId !== null, function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
             ->with('images')
             ->orderByDesc('created_at') // latest submission wins on duplicates
             ->get()
-            ->groupBy('copy_id')
-            ->map(function ($responses) {
-                return $responses->reduce(function (array $carry, Response $response) {
-                    $content = $response->content;
-
-                    if (!isset($content['name'])) {
-                        return $carry;
-                    }
-
-                    $key = $this->subItemKey($content['name'], $content['category'] ?? null);
-
-                    // Keep the first (i.e. latest, due to orderByDesc above) match per key.
-                    if (!isset($carry[$key])) {
-                        $carry[$key] = [
-                            'batch_no' => $response->batch_no,
-                            'rating'       => $content['rating'] ?? null,
-                            'remarks'      => $content['remarks'] ?? null,
-                            'images'       => $response->images->pluck('url')->values(),
-                            'is_completed' => (bool) $response->is_completed, // draft vs. final
-                            'answered_at'  => $response->created_at,
-                        ];
-                    }
-
-                    return $carry;
-                }, []);
+            ->groupBy(['copy_id', 'user_id'])
+            ->map(function ($byUser) {
+                return $byUser->map(fn ($responses) => $this->buildAnswerIndex($responses));
             });
 
         $filtered = $paginator->getCollection()
             ->map(function (Copy $copy) use ($userId, $isAnswered, $answersByCopy) {
-                $answersByKey = $answersByCopy->get($copy->id, collect());
+                $answersByUser = $answersByCopy->get($copy->id, collect());
 
-                $sections = collect($copy->checklist)
-                    ->filter(function (array $section) use ($userId, $isAnswered) {
-                        if (($section['user_id'] ?? null) != $userId) {
-                            return false;
-                        }
-
-                        // null = no filter, return all of this user's sections regardless of status
-                        if ($isAnswered === null) {
-                            return true;
-                        }
-
-                        $sectionIsAnswered = (int) ($section['is_answered'] ?? 0);
-
-                        return $sectionIsAnswered === $isAnswered;
-                    })
-                    ->map(function (array $section) use ($answersByKey) {
-                        if (!empty($section['sub-sections'])) {
-                            $section['sub-sections'] = collect($section['sub-sections'])
-                                ->map(function (array $subSection) use ($answersByKey) {
-                                    $subSection['sub-items'] = collect($subSection['sub-items'] ?? [])
-                                        ->map(function (array $subItem) use ($answersByKey) {
-                                            $key = $this->subItemKey($subItem['name'], $subItem['category'] ?? null);
-                                            $subItem['answer'] = $answersByKey[$key] ?? null;
-
-                                            return $subItem;
-                                        })
-                                        ->all();
-
-                                    return $subSection;
-                                })
-                                ->all();
-
-                            return $section;
-                        }
-
-                        // Flat shape: section.item[]
-                        $section['item'] = collect($section['item'] ?? [])
-                            ->map(function (array $item) use ($answersByKey) {
-                                $key = $this->subItemKey($item['name'], $item['category'] ?? null);
-                                $item['answer'] = $answersByKey[$key] ?? null;
-
-                                return $item;
-                            })
-                            ->all();
-
-                        return $section;
-                    })
-                    ->values()
-                    ->all();
+                $sections = $this->applySectionsAndAnswers(
+                    $copy->checklist,
+                    $userId,
+                    $isAnswered,
+                    $answersByUser
+                );
 
                 $copy->setAttribute('checklist', $sections);
 
@@ -159,6 +106,153 @@ class CopyService
         $paginator->setCollection($filtered->values());
 
         return $paginator;
+    }
+
+    /**
+     * Fetch a single copy's checklist by copy_id.
+     *
+     * - Pass $userId to scope to one user's sections/answers within this copy.
+     * - Pass $userId = null to return every user's sections/answers (admin view).
+     *
+     * Returns null if the copy doesn't exist, or (in user mode) doesn't
+     * belong to $userId — callers should treat both cases as a 404.
+     */
+    public function getChecklistById(int $copyId, ?int $userId = null, ?int $isAnswered = null): ?Copy
+    {
+        $copy = Copy::withTrashed()
+            ->when($userId !== null, function ($query) use ($userId) {
+                $query->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)]);
+            })
+            ->find($copyId);
+
+        if (!$copy) {
+            return null;
+        }
+
+        $answersByUser = Response::query()
+            ->where('copy_id', $copyId)
+            ->when($userId !== null, function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->with('images')
+            ->orderByDesc('created_at') // latest submission wins on duplicates
+            ->get()
+            ->groupBy('user_id')
+            ->map(fn ($responses) => $this->buildAnswerIndex($responses));
+
+        $sections = $this->applySectionsAndAnswers(
+            $copy->checklist,
+            $userId,
+            $isAnswered,
+            $answersByUser
+        );
+
+        $copy->setAttribute('checklist', $sections);
+
+        return $copy;
+    }
+
+    /**
+     * Reduce a set of responses (already scoped to one copy + one user) into
+     * a lookup keyed by subItemKey(), keeping the latest submission per key.
+     */
+    protected function buildAnswerIndex($responses): array
+    {
+        return $responses->reduce(function (array $carry, Response $response) {
+            $content = $response->content;
+
+            if (!isset($content['name'])) {
+                return $carry;
+            }
+
+            $key = $this->subItemKey($content['name'], $content['category'] ?? null);
+
+            // Keep the first (i.e. latest, due to orderByDesc upstream) match per key.
+            if (!isset($carry[$key])) {
+                $carry[$key] = [
+                    'batch_no'     => $response->batch_no,
+                    'rating'       => $content['rating'] ?? null,
+                    'remarks'      => $content['remarks'] ?? null,
+                    'images'       => $response->images->pluck('url')->values(),
+                    'is_completed' => (bool) $response->is_completed, // draft vs. final
+                    'answered_at'  => $response->created_at,
+                ];
+            }
+
+            return $carry;
+        }, []);
+    }
+
+    /**
+     * Filter a copy's checklist sections by owner/is_answered, then attach
+     * each section's resolved answer from the per-user answer index.
+     *
+     * @param array $checklist    Raw $copy->checklist array.
+     * @param int|null $userId    Fixed user in user mode; null in admin mode.
+     * @param int|null $isAnswered Optional is_answered filter.
+     * @param \Illuminate\Support\Collection $answersByUser Keyed by user_id => [subItemKey => answer].
+     */
+    protected function applySectionsAndAnswers(
+        array $checklist,
+        ?int $userId,
+        ?int $isAnswered,
+              $answersByUser
+    ): array {
+        return collect($checklist)
+            ->filter(function (array $section) use ($userId, $isAnswered) {
+                // In user mode, only keep sections owned by this user.
+                if ($userId !== null && (int) ($section['user_id'] ?? -1) !== $userId) {
+                    return false;
+                }
+
+                // null = no filter, return all matching sections regardless of status
+                if ($isAnswered === null) {
+                    return true;
+                }
+
+                $sectionIsAnswered = (int) ($section['is_answered'] ?? 0);
+
+                return $sectionIsAnswered === $isAnswered;
+            })
+            ->map(function (array $section) use ($userId, $answersByUser) {
+                // User mode: always resolve against the fixed $userId.
+                // Admin mode: resolve against each section's own owner.
+                $lookupUserId = $userId ?? (isset($section['user_id']) ? (int) $section['user_id'] : null);
+                $answersByKey = $answersByUser->get($lookupUserId, collect());
+
+                if (!empty($section['sub-sections'])) {
+                    $section['sub-sections'] = collect($section['sub-sections'])
+                        ->map(function (array $subSection) use ($answersByKey) {
+                            $subSection['sub-items'] = collect($subSection['sub-items'] ?? [])
+                                ->map(function (array $subItem) use ($answersByKey) {
+                                    $key = $this->subItemKey($subItem['name'], $subItem['category'] ?? null);
+                                    $subItem['answer'] = $answersByKey[$key] ?? null;
+
+                                    return $subItem;
+                                })
+                                ->all();
+
+                            return $subSection;
+                        })
+                        ->all();
+
+                    return $section;
+                }
+
+                // Flat shape: section.item[]
+                $section['item'] = collect($section['item'] ?? [])
+                    ->map(function (array $item) use ($answersByKey) {
+                        $key = $this->subItemKey($item['name'], $item['category'] ?? null);
+                        $item['answer'] = $answersByKey[$key] ?? null;
+
+                        return $item;
+                    })
+                    ->all();
+
+                return $section;
+            })
+            ->values()
+            ->all();
     }
 
     protected function subItemKey(string $name, ?string $category): string
