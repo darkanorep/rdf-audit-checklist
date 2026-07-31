@@ -4,8 +4,8 @@ namespace App\Services;
 
 use AllowDynamicProperties;
 use App\Models\Response;
+use App\Models\User;
 use Illuminate\Database\QueryException;
-use App\Models\Checklist;
 use App\Models\Copy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -142,10 +142,54 @@ class CopyService
 
         $sections = $this->applySectionsAndAnswers($copy->checklist, $userId, $isAnswered, $answersByUser);
         $sections = $this->attachSectionAverages($sections);
+        $sections = $this->attachAssignedUsers($sections);
 
         $copy->setAttribute('checklist', $sections);
 
         return $copy;
+    }
+
+    /**
+     * Attach the assigned user's { id, name } to every section, keyed off
+     * each section's own user_id. Fetches all needed users in a single
+     * query (not per-section) to avoid N+1.
+     */
+    protected function attachAssignedUsers(array $sections): array
+    {
+        $userIds = collect($sections)
+            ->pluck('user_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($userIds->isEmpty()) {
+            return collect($sections)
+                ->map(function (array $section) {
+                    $section['assigned_user'] = null;
+
+                    return $section;
+                })
+                ->all();
+        }
+
+        $usersById = User::query()
+            ->whereIn('id', $userIds)
+            ->get(['id', 'first_name', 'last_name'])
+            ->keyBy('id');
+
+        return collect($sections)
+            ->map(function (array $section) use ($usersById) {
+                $sectionUserId = isset($section['user_id']) ? (int) $section['user_id'] : null;
+                $user = $sectionUserId !== null ? $usersById->get($sectionUserId) : null;
+
+                $section['assigned_user'] = $user
+                    ? ['id' => $user->id, 'name' => $user->first_name . ' ' . $user->last_name]
+                    : null;
+
+                return $section;
+            })
+            ->all();
     }
 
     protected function attachSectionAverages(array $sections): array
