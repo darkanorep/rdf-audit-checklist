@@ -135,21 +135,105 @@ class CopyService
                 $query->where('user_id', $userId);
             })
             ->with('images')
-            ->orderByDesc('created_at') // latest submission wins on duplicates
+            ->orderByDesc('created_at')
             ->get()
             ->groupBy('user_id')
             ->map(fn ($responses) => $this->buildAnswerIndex($responses));
 
-        $sections = $this->applySectionsAndAnswers(
-            $copy->checklist,
-            $userId,
-            $isAnswered,
-            $answersByUser
-        );
+        $sections = $this->applySectionsAndAnswers($copy->checklist, $userId, $isAnswered, $answersByUser);
+        $sections = $this->attachSectionAverages($sections);
 
         $copy->setAttribute('checklist', $sections);
 
         return $copy;
+    }
+
+    protected function attachSectionAverages(array $sections): array
+    {
+        return collect($sections)
+            ->map(function (array $section) {
+                $breakdown = $this->calculateSectionBreakdown($section);
+
+                $section['average_rating'] = $breakdown['average'];
+                $section['rating_breakdown'] = $breakdown;
+
+                return $section;
+            })
+            ->all();
+    }
+
+    /**
+     * Build the rating breakdown for a section: which sub-items contributed,
+     * how many were rated vs. total, the sum, and the resulting average.
+     * Unrated sub-items are listed (rating: null) but excluded from sum/average.
+     */
+    protected function calculateSectionBreakdown(array $section): array
+    {
+        $items = [];
+
+        if (!empty($section['sub-sections'])) {
+            foreach ($section['sub-sections'] as $subSection) {
+                foreach ($subSection['sub-items'] ?? [] as $subItem) {
+                    $items[] = $subItem;
+                }
+            }
+        } else {
+            $items = $section['item'] ?? [];
+        }
+
+        $breakdownItems = collect($items)->map(function (array $item) {
+            $rating = $item['answer']['rating'] ?? null;
+            $isNumeric = $rating !== null && is_numeric($rating);
+
+            return [
+                'name'   => $item['name'] ?? null,
+                'rating' => $isNumeric ? (float) $rating : null,
+                'remarks' => $item['remarks'] ?? null,
+            ];
+        });
+
+        $ratedItems = $breakdownItems->filter(fn ($i) => $i['rating'] !== null);
+        $sum = $ratedItems->sum('rating');
+        $ratedCount = $ratedItems->count();
+
+        return [
+            'items'       => $breakdownItems->values()->all(),
+            'total_count' => $breakdownItems->count(),
+            'rated_count' => $ratedCount,
+            'sum'         => $ratedCount > 0 ? round($sum, 2) : 0.0,
+            'average'     => $ratedCount > 0 ? round($sum / $ratedCount, 2) : null,
+        ];
+    }
+
+    protected function calculateSectionAverage(array $section): ?float
+    {
+        $ratings = collect();
+
+        if (!empty($section['sub-sections'])) {
+            foreach ($section['sub-sections'] as $subSection) {
+                foreach ($subSection['sub-items'] ?? [] as $subItem) {
+                    $rating = $subItem['answer']['rating'] ?? null;
+
+                    if ($rating !== null && is_numeric($rating)) {
+                        $ratings->push((float) $rating);
+                    }
+                }
+            }
+        } else {
+            foreach ($section['item'] ?? [] as $item) {
+                $rating = $item['answer']['rating'] ?? null;
+
+                if ($rating !== null && is_numeric($rating)) {
+                    $ratings->push((float) $rating);
+                }
+            }
+        }
+
+        if ($ratings->isEmpty()) {
+            return null;
+        }
+
+        return round($ratings->avg(), 2);
     }
 
     /**
