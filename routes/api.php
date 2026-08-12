@@ -3,6 +3,7 @@
 use App\Http\Controllers\CategoryTypeController;
 use App\Http\Controllers\ChecklistController;
 use App\Http\Controllers\CopyController;
+use App\Http\Controllers\FindingController;
 use App\Http\Controllers\PublishChecklistController;
 use App\Http\Controllers\ResponseController;
 use App\Http\Controllers\RoleController;
@@ -29,6 +30,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::get('published-checklist/mine', [CopyController::class, 'showPublishedPerUser']);
     Route::apiResource('published-checklist/mine/response', ResponseController::class);
+    Route::apiResource('findings', FindingController::class)->only(['store']);
 
     Route::post('logout', [AuthController::class, 'logout']);
 });

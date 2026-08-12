@@ -21,6 +21,10 @@ class Copy extends Model
             'information' => 'array'
         ];
     }
+
+    public function findings() {
+        return $this->hasMany(Finding::class);
+    }
 }
 
 

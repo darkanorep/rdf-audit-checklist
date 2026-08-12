@@ -19,6 +19,7 @@ class ChecklistResource extends JsonResource
             'title' => $this->title,
             'information' => $this->information,
             'checklist' => $this->checklist,
+            'findings' => FindingResource::collection($this->whenLoaded('findings')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'deleted_at' => $this->deleted_at

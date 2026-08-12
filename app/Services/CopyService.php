@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use AllowDynamicProperties;
+use App\Models\Finding;
 use App\Models\Response;
 use App\Models\User;
 use Illuminate\Database\QueryException;
@@ -119,10 +120,18 @@ class CopyService
      */
     public function getChecklistById(int $copyId, ?int $userId = null, ?int $isAnswered = null): ?Copy
     {
-        $copy = Copy::withTrashed()
+
+      $copy = Copy::withTrashed()
             ->when($userId !== null, function ($query) use ($userId) {
                 $query->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)]);
             })
+          ->with([
+              'findings' => function ($query) {
+                  $query->with(['observers' => function ($query) {
+                      $query->select('users.id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"));
+                  }]);
+              }
+          ])
             ->find($copyId);
 
         if (!$copy) {

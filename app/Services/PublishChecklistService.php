@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Copy;
 use App\Models\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 
@@ -21,7 +22,15 @@ class PublishChecklistService
      */
     public function paginateWithSummary(int $perPage = 15): LengthAwarePaginator
     {
-        $paginator = Copy::query()->paginate($perPage);
+        $paginator = Copy::query()
+        ->with([
+            'findings' => function ($query) {
+                $query->with(['observers' => function ($query) {
+                    $query->select('users.id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"));
+                }]);
+            }
+        ])
+        ->paginate($perPage);
 
         $copyIds = $paginator->getCollection()->pluck('id');
 
