@@ -6,8 +6,10 @@ use AllowDynamicProperties;
 use App\Models\Finding;
 use App\Models\Response;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use App\Models\Copy;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -63,24 +65,22 @@ class CopyService
      */
     public function getChecklist(?int $userId = null, int $perPage = 15, ?int $isAnswered = null)
     {
-        $paginator = Copy::withTrashed()
+        $baseQuery = fn () => Copy::withTrashed()
             ->when($userId !== null, function ($query) use ($userId) {
                 $query->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)]);
-            })
-            ->paginate($perPage);
+            });
+
+        $paginator = $baseQuery()->paginate($perPage);
 
         $copyIds = $paginator->getCollection()->pluck('id');
 
-        // Grouped by copy_id then user_id regardless of mode — cheap even in
-        // user mode (single inner group), and required in admin mode to avoid
-        // cross-user answer collisions on (name, category) keys.
         $answersByCopy = Response::query()
             ->whereIn('copy_id', $copyIds)
             ->when($userId !== null, function ($query) use ($userId) {
                 $query->where('user_id', $userId);
             })
             ->with('images')
-            ->orderByDesc('created_at') // latest submission wins on duplicates
+            ->orderByDesc('created_at')
             ->get()
             ->groupBy(['copy_id', 'user_id'])
             ->map(function ($byUser) {
@@ -102,12 +102,77 @@ class CopyService
 
                 return $copy;
             })
-            ->reject(fn (Copy $copy) => empty($copy->checklist)); // drop copies with nothing matching
+            ->reject(fn (Copy $copy) => empty($copy->checklist))
+            ->values();
 
-        $paginator->setCollection($filtered->values());
+        if ($isAnswered === null) {
+            // No section-level filter applied — original count is already correct.
+            $paginator->setCollection($filtered);
+            return $paginator;
+        }
 
-        return $paginator;
+        $realTotal = $this->countMatchingChecklists($baseQuery(), $userId, $isAnswered);
+
+        return new LengthAwarePaginator(
+            $filtered,
+            $realTotal,
+            $perPage,
+            $paginator->currentPage(),
+            [
+                'path'     => $paginator->path(),
+                'pageName' => 'page',
+            ]
+        );
     }
+
+    /**
+     * Runs the SAME per-section answer-matching logic against every Copy
+     * matching the base filters (not just the current page), to get an
+     * accurate total for pagination metadata when $isAnswered narrows results.
+     *
+     * Cost: O(all matching copies), pulled in id/checklist-only chunks to
+     * avoid loading full models. This is the price of a JSON-structure filter
+     * that can't be pushed into SQL — there is no cheaper correct answer.
+     */
+    protected function countMatchingChecklists(Builder $query, ?int $userId, int $isAnswered): int
+    {
+        $count = 0;
+
+        $query->select(['id', 'checklist', 'checklist_user_ids'])
+            ->chunkById(200, function ($copies) use (&$count, $userId, $isAnswered) {
+                $copyIds = $copies->pluck('id');
+
+                $answersByCopy = Response::query()
+                    ->whereIn('copy_id', $copyIds)
+                    ->when($userId !== null, fn ($q) => $q->where('user_id', $userId))
+                    ->with('images')
+                    ->orderByDesc('created_at')
+                    ->get()
+                    ->groupBy(['copy_id', 'user_id'])
+                    ->map(fn ($byUser) => $byUser->map(
+                        fn ($responses) => $this->buildAnswerIndex($responses)
+                    ));
+
+                foreach ($copies as $copy) {
+                    $answersByUser = $answersByCopy->get($copy->id, collect());
+
+                    $sections = $this->applySectionsAndAnswers(
+                        $copy->checklist,
+                        $userId,
+                        $isAnswered,
+                        $answersByUser
+                    );
+
+                    if (!empty($sections)) {
+                        $count++;
+                    }
+                }
+            });
+
+        return $count;
+    }
+
+
 
     /**
      * Fetch a single copy's checklist by copy_id.
@@ -401,5 +466,34 @@ class CopyService
     {
         return (string) $e->getCode() === '23000'
             && str_contains($e->getMessage(), 'reference_no');
+    }
+
+    public function countChecklist(): array
+    {
+        $userId = auth()->id();
+
+        $supplierExpr = "JSON_UNQUOTE(JSON_EXTRACT(information, '$.supplier'))";
+
+        $result = Copy::withTrashed()
+            ->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)])
+            ->selectRaw("
+            COUNT(*) as total_checklists,
+            COUNT(DISTINCT CASE WHEN {$supplierExpr} IS NOT NULL THEN {$supplierExpr} END) as total_suppliers
+        ")
+            ->first();
+
+        $totalResponded = Copy::withTrashed()
+            ->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)])
+            ->whereHas('responses', function ($query) use ($userId) {
+                $query->where('user_id', $userId)
+                    ->where('is_completed', true);
+            })
+            ->count();
+
+        return [
+            'total_checklists' => (int) $result->total_checklists,
+            'total_suppliers'  => (int) $result->total_suppliers,
+            'total_responded'  => $totalResponded,
+        ];
     }
 }

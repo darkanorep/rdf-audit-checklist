@@ -25,12 +25,20 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('checklists/{checklist}/publish', [CopyController::class, 'publish']);
         Route::apiResource('checklists', ChecklistController::class);
         Route::get('publish-checklists', [PublishChecklistController::class, 'index']);
-        Route::get('publish-checklists/{copy}', [CopyController::class, 'show']);
     });
 
+    //DROPDOWN
+    Route::get('dropdown/category-types', [CategoryTypeController::class, 'index']);
+
+    Route::get('publish-checklists/{copy}', [CopyController::class, 'show']);
     Route::get('published-checklist/mine', [CopyController::class, 'showPublishedPerUser']);
     Route::apiResource('published-checklist/mine/response', ResponseController::class);
+
     Route::apiResource('findings', FindingController::class)->only(['store']);
+
+    //COUNTS
+    Route::get('count-checklists', [CopyController::class, 'countChecklist']);
 
     Route::post('logout', [AuthController::class, 'logout']);
 });
+

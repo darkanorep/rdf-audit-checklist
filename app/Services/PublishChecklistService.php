@@ -20,17 +20,22 @@ class PublishChecklistService
      * Computed fresh from Response rows via a single grouped query,
      * so it stays accurate even if checklist.is_answered lags behind.
      */
-    public function paginateWithSummary(int $perPage = 15): LengthAwarePaginator
+
+    public function paginateWithSummary(array $filters = []): LengthAwarePaginator
     {
+        $perPage = $filters['perPage'] ?? 15;
+        $status  = $filters['status'] ?? null;
+        $page    = $filters['page'] ?? (int) request()->get('page', 1);
+
         $paginator = Copy::query()
-        ->with([
-            'findings' => function ($query) {
-                $query->with(['observers' => function ($query) {
-                    $query->select('users.id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"));
-                }]);
-            }
-        ])
-        ->paginate($perPage);
+            ->with([
+                'findings' => function ($query) {
+                    $query->with(['observers' => function ($query) {
+                        $query->select('users.id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"));
+                    }]);
+                }
+            ])
+            ->paginate($perPage);
 
         $copyIds = $paginator->getCollection()->pluck('id');
 
@@ -66,9 +71,68 @@ class PublishChecklistService
             return $copy;
         });
 
-        return $paginator;
+        if (!$status) {
+            return $paginator;
+        }
+
+        // Filter the current page's items in memory (cheap — already loaded).
+        $filtered = $paginator->getCollection()->filter(
+            fn (Copy $copy) => $this->matchesStatus($copy, $status)
+        )->values();
+
+        // Recompute the TRUE total across the whole table using the same rule,
+        // so total()/lastPage() stop lying once filtering drops rows.
+        $realTotal = $this->countByStatus($status);
+
+        return new LengthAwarePaginator(
+            $filtered,
+            $realTotal,
+            $perPage,
+            $page,
+            [
+                'path'     => $paginator->path(),
+                'pageName' => 'page',
+            ]
+        );
     }
 
+    /**
+     * Precedence: findings present -> consolidated (overrides ongoing)
+     *             else answered > 0 -> ongoing
+     *             else -> pending
+     */
+    protected function matchesStatus(Copy $copy, string $status): bool
+    {
+        $hasFindings = $copy->relationLoaded('findings') && $copy->findings->isNotEmpty();
+        $hasAnswered = ($copy->checklist_summary['answered'] ?? 0) > 0;
+
+        return match ($status) {
+            'generated'    => $hasFindings,
+//      'ongoing'      => !$hasFindings && $hasAnswered,
+            'consolidated' => !$hasFindings && !$hasAnswered,
+            default        => true,
+        };
+    }
+
+    /**
+     * Mirrors matchesStatus() at the query level, for an accurate total.
+     * Keep this in sync with matchesStatus() — same naming caveat applies.
+     */
+    protected function countByStatus(string $status): int
+    {
+        $completedResponseCopyIds = Response::query()
+            ->where('is_completed', true)
+            ->distinct()
+            ->pluck('copy_id');
+
+        return Copy::query()
+            ->when($status === 'generated', fn ($q) => $q->whereHas('findings'))
+            ->when($status === 'consolidated', fn ($q) => $q
+                ->whereDoesntHave('findings')
+                ->whereNotIn('id', $completedResponseCopyIds)
+            )
+            ->count();
+    }
     /**
      * Counts-only summary: total / answered / remaining / percent.
      * No item detail, no images — keeps the list payload small.

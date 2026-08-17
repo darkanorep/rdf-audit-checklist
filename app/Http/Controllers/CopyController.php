@@ -63,21 +63,9 @@ class CopyController extends Controller
             : $this->responseSuccess('Published checklist retrieved successfully.', ChecklistResource::collection($checklists));
     }
 
-//    public function showPublishedForAdmin(Request $request)
-//    {
-//        $perPage = $request->integer('per_page', 15);
-//        $isAnswered = $request->filled('is_answered')
-//            ? filter_var($request->input('is_answered'), FILTER_VALIDATE_INT)
-//            : null;
-//
-//        $checklists = $this->copyService->getChecklist(null, $perPage, $isAnswered);
-//
-//        if ($checklists->isEmpty()) {
-//            return $this->responseNotFound('No published checklist found.');
-//        }
-//
-//        return $checklists instanceof LengthAwarePaginator
-//            ? $checklists->through(fn ($item) => new ChecklistResource($item))
-//            : $this->responseSuccess('Published checklist retrieved successfully.', ChecklistResource::collection($checklists));
-//    }
+    public function countChecklist(Request $request)
+    {
+        return $this->copyService->countChecklist();
+    }
+
 }

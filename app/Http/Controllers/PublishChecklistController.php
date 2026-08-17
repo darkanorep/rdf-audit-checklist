@@ -14,8 +14,9 @@ class PublishChecklistController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 10);
+        $status = $request->input('status');
 
-        $copies = $this->checklistService->paginateWithSummary($perPage);
+        $copies = $this->checklistService->paginateWithSummary($request->all());
 
         return response()->json($copies);
     }

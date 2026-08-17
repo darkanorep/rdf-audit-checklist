@@ -25,6 +25,11 @@ class Copy extends Model
     public function findings() {
         return $this->hasMany(Finding::class);
     }
+
+    public function responses()
+    {
+        return $this->hasMany(Response::class, 'copy_id');
+    }
 }
 
 
