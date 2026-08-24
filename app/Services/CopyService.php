@@ -71,7 +71,7 @@ class CopyService
     ) {
         $baseQuery = fn () => Copy::withTrashed()
             ->when($userId !== null, function ($query) use ($userId) {
-                $query->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)]);
+                $query->whereJsonContains('checklist_user_ids', $userId);
             })
             ->when($location !== null, function ($query) use ($location) {
                 $query->where('information->location', $location);
@@ -95,25 +95,28 @@ class CopyService
             });
 
         $filtered = $paginator->getCollection()
-            ->map(function (Copy $copy) use ($userId, $isAnswered, $answersByCopy) {
+            ->map(function (Copy $copy) use ($userId, $answersByCopy) {
                 $answersByUser = $answersByCopy->get($copy->id, collect());
 
-                $sections = $this->applySectionsAndAnswers(
-                    $copy->checklist,
-                    $userId,
-                    $isAnswered,
-                    $answersByUser
-                );
+                // Sections are no longer pruned by is_answered here.
+                $sections = $this->applySectionsAndAnswers($copy->checklist, $userId, $answersByUser);
 
                 $copy->setAttribute('checklist', $sections);
 
                 return $copy;
             })
             ->reject(fn (Copy $copy) => empty($copy->checklist))
+            ->when($isAnswered !== null, function ($copies) use ($isAnswered) {
+                // Whole-checklist decision: keep only copies whose aggregate
+                // answered-state (ALL sections answered) matches the request.
+                return $copies->filter(
+                    fn (Copy $copy) => $this->isChecklistFullyAnswered($copy->checklist) === (bool) $isAnswered
+                );
+            })
             ->values();
 
         if ($isAnswered === null) {
-            // No section-level filter applied — original count is already correct.
+            // No checklist-level filter applied — original count is already correct.
             $paginator->setCollection($filtered);
             return $paginator;
         }
@@ -133,44 +136,28 @@ class CopyService
     }
 
     /**
-     * Runs the SAME per-section answer-matching logic against every Copy
-     * matching the base filters (not just the current page), to get an
+     * Runs the SAME authorization + aggregate-answered logic against every
+     * Copy matching the base filters (not just the current page), to get an
      * accurate total for pagination metadata when $isAnswered narrows results.
      *
-     * Cost: O(all matching copies), pulled in id/checklist-only chunks to
-     * avoid loading full models. This is the price of a JSON-structure filter
-     * that can't be pushed into SQL — there is no cheaper correct answer.
+     * No Response/answer lookups needed here — is_answered is a flag already
+     * stored per-section, so this only needs id + checklist, chunked to avoid
+     * loading full models.
      */
     protected function countMatchingChecklists(Builder $query, ?int $userId, int $isAnswered): int
     {
         $count = 0;
 
-        $query->select(['id', 'checklist', 'checklist_user_ids'])
+        $query->select(['id', 'checklist'])
             ->chunkById(200, function ($copies) use (&$count, $userId, $isAnswered) {
-                $copyIds = $copies->pluck('id');
-
-                $answersByCopy = Response::query()
-                    ->whereIn('copy_id', $copyIds)
-                    ->when($userId !== null, fn ($q) => $q->where('user_id', $userId))
-                    ->with('images')
-                    ->orderByDesc('created_at')
-                    ->get()
-                    ->groupBy(['copy_id', 'user_id'])
-                    ->map(fn ($byUser) => $byUser->map(
-                        fn ($responses) => $this->buildAnswerIndex($responses)
-                    ));
-
                 foreach ($copies as $copy) {
-                    $answersByUser = $answersByCopy->get($copy->id, collect());
+                    $sections = collect($copy->checklist)
+                        ->filter(fn (array $section) => $userId === null
+                            || (int) ($section['user_id'] ?? -1) === $userId
+                        )
+                        ->all();
 
-                    $sections = $this->applySectionsAndAnswers(
-                        $copy->checklist,
-                        $userId,
-                        $isAnswered,
-                        $answersByUser
-                    );
-
-                    if (!empty($sections)) {
+                    if ($this->isChecklistFullyAnswered($sections) === (bool) $isAnswered) {
                         $count++;
                     }
                 }
@@ -178,6 +165,24 @@ class CopyService
 
         return $count;
     }
+
+    /**
+     * A checklist counts as "answered" only if every section within it
+     * (already scoped to the relevant user, if any) is answered.
+     * A single unanswered section — or no sections at all — makes the
+     * whole checklist "not answered".
+     */
+    protected function isChecklistFullyAnswered(array $sections): bool
+    {
+        if (empty($sections)) {
+            return false;
+        }
+
+        return collect($sections)->every(
+            fn (array $section) => (int) ($section['is_answered'] ?? 0) === 1
+        );
+    }
+
 
 
 
@@ -192,18 +197,17 @@ class CopyService
      */
     public function getChecklistById(int $copyId, ?int $userId = null, ?int $isAnswered = null): ?Copy
     {
-
-      $copy = Copy::withTrashed()
+        $copy = Copy::withTrashed()
             ->when($userId !== null, function ($query) use ($userId) {
-                $query->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)]);
+                $query->whereJsonContains('checklist_user_ids', $userId);
             })
-          ->with([
-              'findings' => function ($query) {
-                  $query->with(['observers' => function ($query) {
-                      $query->select('users.id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"));
-                  }]);
-              }
-          ])
+            ->with([
+                'findings' => function ($query) {
+                    $query->with(['observers' => function ($query) {
+                        $query->select('users.id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"));
+                    }]);
+                }
+            ])
             ->find($copyId);
 
         if (!$copy) {
@@ -221,7 +225,14 @@ class CopyService
             ->groupBy('user_id')
             ->map(fn ($responses) => $this->buildAnswerIndex($responses));
 
-        $sections = $this->applySectionsAndAnswers($copy->checklist, $userId, $isAnswered, $answersByUser);
+        $sections = $this->applySectionsAndAnswers($copy->checklist, $userId, $answersByUser);
+
+        // Same aggregate rule as the collection endpoint. Treat a mismatch as
+        // "not found" so callers keep returning 404, not an empty-checklist 200.
+        if ($isAnswered !== null && $this->isChecklistFullyAnswered($sections) !== (bool) $isAnswered) {
+            return null;
+        }
+
         $sections = $this->attachSectionAverages($sections);
         $sections = $this->attachAssignedUsers($sections);
 
@@ -393,39 +404,22 @@ class CopyService
     }
 
     /**
-     * Filter a copy's checklist sections by owner/is_answered, then attach
-     * each section's resolved answer from the per-user answer index.
-     *
-     * @param array $checklist    Raw $copy->checklist array.
-     * @param int|null $userId    Fixed user in user mode; null in admin mode.
-     * @param int|null $isAnswered Optional is_answered filter.
-     * @param \Illuminate\Support\Collection $answersByUser Keyed by user_id => [subItemKey => answer].
+     * Filter a copy's checklist sections by owner, then attach each section's
+     * resolved answer from the per-user answer index. No longer filters by
+     * is_answered — that's now a whole-checklist decision made by the caller
+     * via isChecklistFullyAnswered().
      */
     protected function applySectionsAndAnswers(
         array $checklist,
         ?int $userId,
-        ?int $isAnswered,
               $answersByUser
     ): array {
         return collect($checklist)
-            ->filter(function (array $section) use ($userId, $isAnswered) {
-                // In user mode, only keep sections owned by this user.
-                if ($userId !== null && (int) ($section['user_id'] ?? -1) !== $userId) {
-                    return false;
-                }
-
-                // null = no filter, return all matching sections regardless of status
-                if ($isAnswered === null) {
-                    return true;
-                }
-
-                $sectionIsAnswered = (int) ($section['is_answered'] ?? 0);
-
-                return $sectionIsAnswered === $isAnswered;
+            ->filter(function (array $section) use ($userId) {
+                // User mode: only keep sections owned by this user. Admin mode: keep all.
+                return $userId === null || (int) ($section['user_id'] ?? -1) === $userId;
             })
             ->map(function (array $section) use ($userId, $answersByUser) {
-                // User mode: always resolve against the fixed $userId.
-                // Admin mode: resolve against each section's own owner.
                 $lookupUserId = $userId ?? (isset($section['user_id']) ? (int) $section['user_id'] : null);
                 $answersByKey = $answersByUser->get($lookupUserId, collect());
 
@@ -479,28 +473,73 @@ class CopyService
     {
         $userId = auth()->id();
 
+        $responsesTable = (new Response())->getTable();
+        $copiesTable    = (new Copy())->getTable();
+
         $supplierExpr = "JSON_UNQUOTE(JSON_EXTRACT(information, '$.supplier'))";
 
         $result = Copy::withTrashed()
-            ->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)])
+            ->whereJsonContains('checklist_user_ids', $userId)
             ->selectRaw("
             COUNT(*) as total_checklists,
-            COUNT(DISTINCT CASE WHEN {$supplierExpr} IS NOT NULL THEN {$supplierExpr} END) as total_suppliers
-        ")
+            COUNT(DISTINCT CASE WHEN {$supplierExpr} IS NOT NULL THEN {$supplierExpr} END) as total_suppliers,
+            SUM(CASE WHEN EXISTS (
+                SELECT 1 FROM {$responsesTable}
+                WHERE {$responsesTable}.copy_id = {$copiesTable}.id
+                  AND {$responsesTable}.user_id = ?
+                  AND {$responsesTable}.is_completed = 1
+            ) THEN 1 ELSE 0 END) as total_responded
+        ", [$userId])
             ->first();
 
-        $totalResponded = Copy::withTrashed()
-            ->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)])
-            ->whereHas('responses', function ($query) use ($userId) {
-                $query->where('user_id', $userId)
-                    ->where('is_completed', true);
-            })
-            ->count();
+        [$totalCompleted, $totalPending] = $this->countCompletedAndPending($userId);
 
         return [
             'total_checklists' => (int) $result->total_checklists,
             'total_suppliers'  => (int) $result->total_suppliers,
-            'total_responded'  => $totalResponded,
+            'total_responded'  => (int) $result->total_responded,
+            'total_completed'  => $totalCompleted,
+            'total_pending'    => $totalPending,
         ];
+    }
+
+    /**
+     * Buckets every checklist (scoped to $userId) into completed vs. pending
+     * using the same whole-checklist aggregate rule as getChecklist()'s
+     * is_answered filter: every user-scoped section answered => completed;
+     * a single unanswered section (or none at all) => pending.
+     *
+     * Chunked and column-limited (id, checklist only) for the same reason as
+     * countMatchingChecklists() — this rule can't be pushed into a single SQL
+     * aggregate without JSON_TABLE-style constructs that tie the query to a
+     * specific MySQL version, so we pay the cost of iterating in PHP instead.
+     *
+     * @return array{0: int, 1: int} [totalCompleted, totalPending]
+     */
+    protected function countCompletedAndPending(?int $userId): array
+    {
+        $completed = 0;
+        $pending   = 0;
+
+        Copy::withTrashed()
+            ->when($userId !== null, function ($query) use ($userId) {
+                $query->whereJsonContains('checklist_user_ids', $userId);
+            })
+            ->select(['id', 'checklist'])
+            ->chunkById(200, function ($copies) use (&$completed, &$pending, $userId) {
+                foreach ($copies as $copy) {
+                    $sections = collect($copy->checklist)
+                        ->filter(fn (array $section) => $userId === null
+                            || (int) ($section['user_id'] ?? -1) === $userId
+                        )
+                        ->all();
+
+                    $this->isChecklistFullyAnswered($sections)
+                        ? $completed++
+                        : $pending++;
+                }
+            });
+
+        return [$completed, $pending];
     }
 }
