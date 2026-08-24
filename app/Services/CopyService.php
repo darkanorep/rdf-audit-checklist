@@ -63,11 +63,18 @@ class CopyService
      * - Pass $userId = null for the admin view: all copies, all users'
      *   responses, every section regardless of owner.
      */
-    public function getChecklist(?int $userId = null, int $perPage = 15, ?int $isAnswered = null)
-    {
+    public function getChecklist(
+        ?int $userId = null,
+        int $perPage = 15,
+        ?int $isAnswered = null,
+        ?string $location = null
+    ) {
         $baseQuery = fn () => Copy::withTrashed()
             ->when($userId !== null, function ($query) use ($userId) {
                 $query->whereRaw('JSON_CONTAINS(checklist_user_ids, ?)', [json_encode($userId)]);
+            })
+            ->when($location !== null, function ($query) use ($location) {
+                $query->where('information->location', $location);
             });
 
         $paginator = $baseQuery()->paginate($perPage);
