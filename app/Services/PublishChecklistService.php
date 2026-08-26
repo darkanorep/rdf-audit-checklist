@@ -21,7 +21,7 @@ class PublishChecklistService
      * so it stays accurate even if checklist.is_answered lags behind.
      */
 
-    public function paginateWithSummary(array $filters = []): LengthAwarePaginator
+    public function paginateWithSummary(array $filters = [])
     {
         $perPage = $filters['perPage'] ?? 15;
         $status  = $filters['status'] ?? null;
@@ -109,7 +109,7 @@ class PublishChecklistService
         return match ($status) {
             'generated'    => $hasFindings,
 //      'ongoing'      => !$hasFindings && $hasAnswered,
-            'consolidated' => !$hasFindings && !$hasAnswered,
+            'consolidated' => !$hasFindings && $hasAnswered,
             default        => true,
         };
     }
