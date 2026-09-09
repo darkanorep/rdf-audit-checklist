@@ -40,7 +40,5 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('count-checklists', [CopyController::class, 'countChecklist']);
 
     Route::post('logout', [AuthController::class, 'logout']);
-
-    //test
 });
 
