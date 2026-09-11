@@ -23,6 +23,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::apiResource('suppliers', SupplierController::class);
         Route::apiResource('category-types', CategoryTypeController::class);
         Route::post('checklists/{checklist}/publish', [CopyController::class, 'publish']);
+        Route::delete('checklists/multiple', [ChecklistController::class, 'multipleDestroy']);
         Route::apiResource('checklists', ChecklistController::class);
         Route::get('publish-checklists', [PublishChecklistController::class, 'index']);
     });

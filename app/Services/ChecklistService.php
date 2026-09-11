@@ -13,7 +13,7 @@ class ChecklistService
         return Checklist::create($data);
     }
 
-    public function getChecklistById(int $id) {
+    public function getChecklistById(string|int $id) {
         return Checklist::withTrashed()->find($id);
     }
 
@@ -24,6 +24,10 @@ class ChecklistService
 
     public function deleteChecklist($checklist) : void {
         $checklist = Checklist::withTrashed()->find($checklist);
+
+        if (!$checklist) {
+            return;
+        }
 
         if ($checklist->trashed()) {
             $checklist->restore();

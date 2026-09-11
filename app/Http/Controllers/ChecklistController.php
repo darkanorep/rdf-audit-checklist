@@ -60,6 +60,16 @@ class ChecklistController extends Controller
         return $this->responseSuccess('Checklist status successfully changed.', $this->checklistService->deleteChecklist($id));
     }
 
+    public function multipleDestroy(Request $request) {
+        $ids = $request->input('ids');
+
+        collect($ids)->each(function ($id) {
+            $this->destroy($id);
+        });
+
+        return $this->responseSuccess('Checklists deleted successfully.');
+    }
+
     private function findUserOrFail($id) {
         $checklist = $this->checklistService->getChecklistById($id);
         return $checklist ?: $this->responseNotFound('Checklist not found.');
