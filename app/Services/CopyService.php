@@ -69,8 +69,7 @@ class CopyService
         ?int $isAnswered = null,
         ?string $location = null
     ) {
-        $baseQuery = fn () => Copy::withTrashed()
-            ->when($userId !== null, function ($query) use ($userId) {
+        $baseQuery = fn () => Copy::when($userId !== null, function ($query) use ($userId) {
                 $query->whereJsonContains('checklist_user_ids', $userId);
             })
             ->when($location !== null, function ($query) use ($location) {
@@ -237,6 +236,7 @@ class CopyService
         $sections = $this->attachAssignedUsers($sections);
 
         $copy->setAttribute('checklist', $sections);
+        $copy->setAttribute('is_closed', $copy->trashed());
 
         return $copy;
     }

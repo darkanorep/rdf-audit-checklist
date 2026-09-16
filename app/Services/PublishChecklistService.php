@@ -69,6 +69,8 @@ class PublishChecklistService
                 $this->countsFromResponses($copy->checklist ?? [], $answeredKeysByUser)
             );
 
+            $copy->setAttribute('is_closed', $copy->trashed());
+
             return $copy;
         });
 
@@ -107,7 +109,7 @@ class PublishChecklistService
         $hasFindings = $copy->relationLoaded('findings') && $copy->findings->isNotEmpty();
         $hasAnswered = ($copy->checklist_summary['answered'] ?? 0) > 0;
         $hasFullyAnswered = ($copy->checklist_summary['answered'] ?? 0) === ($copy->checklist_summary['total'] ?? 0);
-        $isTrashed = $copy->trashed();
+        $isTrashed = $copy->is_closed ?? $copy->trashed();
 
         return match ($status) {
             'ongoing'      => !$isTrashed && !$hasFindings && !$hasFullyAnswered,

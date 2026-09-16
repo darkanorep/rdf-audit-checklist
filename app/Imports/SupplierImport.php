@@ -41,22 +41,26 @@ class SupplierImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithVal
     public function rules(): array
     {
         return [
-            'location' => ['nullable', Rule::in(Supplier::LOCATIONS)],
+            'location'      => ['nullable', Rule::in(Supplier::LOCATIONS)],
+            'business_name' => ['required', 'string', Rule::unique('suppliers', 'name')],
         ];
     }
 
     public function customValidationMessages(): array
     {
         return [
-            'location.in' => '"Location" must be exactly one of: '
+            'location.in'           => '"Location" must be exactly one of: '
                 . implode(', ', Supplier::LOCATIONS) . '.',
+            'business_name.unique'  => 'The "Business Name" has already been taken.',
+            'business_name.required' => 'The "Business Name" is required.',
         ];
     }
 
     public function customValidationAttributes(): array
     {
         return [
-            'location' => 'Location',
+            'location'      => 'Location',
+            'business_name' => 'Business Name',
         ];
     }
 }
