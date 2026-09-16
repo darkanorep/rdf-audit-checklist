@@ -341,37 +341,6 @@ class CopyService
         ];
     }
 
-    protected function calculateSectionAverage(array $section): ?float
-    {
-        $ratings = collect();
-
-        if (!empty($section['sub-sections'])) {
-            foreach ($section['sub-sections'] as $subSection) {
-                foreach ($subSection['sub-items'] ?? [] as $subItem) {
-                    $rating = $subItem['answer']['rating'] ?? null;
-
-                    if ($rating !== null && is_numeric($rating)) {
-                        $ratings->push((float) $rating);
-                    }
-                }
-            }
-        } else {
-            foreach ($section['item'] ?? [] as $item) {
-                $rating = $item['answer']['rating'] ?? null;
-
-                if ($rating !== null && is_numeric($rating)) {
-                    $ratings->push((float) $rating);
-                }
-            }
-        }
-
-        if ($ratings->isEmpty()) {
-            return null;
-        }
-
-        return round($ratings->avg(), 2);
-    }
-
     /**
      * Reduce a set of responses (already scoped to one copy + one user) into
      * a lookup keyed by subItemKey(), keeping the latest submission per key.
@@ -541,5 +510,9 @@ class CopyService
             });
 
         return [$completed, $pending];
+    }
+
+    public function closedChecklist(int $checklistId) {
+        return Copy::where('id', $checklistId)->delete();
     }
 }

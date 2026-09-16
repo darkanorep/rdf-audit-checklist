@@ -56,6 +56,7 @@ class UserRequest extends FormRequest
                 'string',
                 Rule::unique('users', 'username')->ignore($user),
             ],
+            'password' => 'required|string',
             'role_id' => 'required|exists:roles,id',
         ];
     }

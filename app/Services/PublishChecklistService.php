@@ -28,6 +28,7 @@ class PublishChecklistService
         $page    = $filters['page'] ?? (int) request()->get('page', 1);
 
         $paginator = Copy::query()
+            ->withTrashed()
             ->with([
                 'findings' => function ($query) {
                     $query->with(['observers' => function ($query) {
@@ -105,11 +106,14 @@ class PublishChecklistService
     {
         $hasFindings = $copy->relationLoaded('findings') && $copy->findings->isNotEmpty();
         $hasAnswered = ($copy->checklist_summary['answered'] ?? 0) > 0;
+        $hasFullyAnswered = ($copy->checklist_summary['answered'] ?? 0) === ($copy->checklist_summary['total'] ?? 0);
+        $isTrashed = $copy->trashed();
 
         return match ($status) {
-            'generated'    => $hasFindings,
-//      'ongoing'      => !$hasFindings && $hasAnswered,
-            'consolidated' => !$hasFindings && $hasAnswered,
+            'ongoing'      => !$isTrashed && !$hasFindings && !$hasFullyAnswered,
+            'consolidated' => !$isTrashed && $hasFullyAnswered,
+            'generated'    => !$isTrashed && $hasFindings,
+            'closed'       => $isTrashed,
             default        => true,
         };
     }

@@ -68,4 +68,16 @@ class CopyController extends Controller
         return $this->copyService->countChecklist();
     }
 
+
+    public function destroy(int $id)
+    {
+        $deleted = $this->copyService->closedChecklist($id);
+
+        if (!$deleted) {
+            return $this->responseNotFound('Checklist not found.');
+        }
+
+        return $this->responseSuccess('Checklist closed successfully.');
+    }
+
 }

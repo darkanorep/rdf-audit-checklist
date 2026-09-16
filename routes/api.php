@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::delete('checklists/multiple', [ChecklistController::class, 'multipleDestroy']);
         Route::apiResource('checklists', ChecklistController::class);
         Route::get('publish-checklists', [PublishChecklistController::class, 'index']);
+        Route::delete('publish-checklists/close/{id}', [CopyController::class, 'destroy']);
     });
 
     //DROPDOWN
