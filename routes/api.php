@@ -4,6 +4,7 @@ use App\Http\Controllers\CategoryTypeController;
 use App\Http\Controllers\ChecklistController;
 use App\Http\Controllers\CopyController;
 use App\Http\Controllers\FindingController;
+use App\Http\Controllers\PendingUserController;
 use App\Http\Controllers\PublishChecklistController;
 use App\Http\Controllers\ResponseController;
 use App\Http\Controllers\RoleController;
@@ -14,11 +15,18 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('login', [AuthController::class, 'login']);
 
+Route::middleware(['api-key'])->group(function () {
+    Route::resource('pending-users', PendingUserController::class)->only(['index', 'store']);
+    Route::post('changepass/{employeeId}', [PendingUserController::class, 'changePassword']);
+    Route::post('reset/{employeeId}', [PendingUserController::class, 'resetPassword']);
+});
+
 Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::group(['middleware' => 'can:admin'], function () {
         Route::apiResource('users', UserController::class);
         Route::apiResource('roles', RoleController::class);
+        Route::get('pending-users', [PendingUserController::class, 'index']);
         Route::post('suppliers/import', [SupplierController::class, 'import']);
         Route::apiResource('suppliers', SupplierController::class);
         Route::apiResource('category-types', CategoryTypeController::class);

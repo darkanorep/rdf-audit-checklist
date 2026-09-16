@@ -101,6 +101,7 @@ return [
     'imagekit_public_key' => env('IMAGEKIT_PUBLIC_KEY'),
     'imagekit_private_key' => env('IMAGEKIT_PRIVATE_KEY'),
     'imagekit_url_endpoint' => env('IMAGEKIT_URL_ENDPOINT'),
+    'api_key' => env('API_KEY'),
 
     'previous_keys' => [
         ...array_filter(

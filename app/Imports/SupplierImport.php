@@ -3,11 +3,13 @@
 namespace App\Imports;
 
 use App\Models\Supplier;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
 
-class SupplierImport implements ToModel, WithHeadingRow, SkipsEmptyRows
+class SupplierImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithValidation
 {
     public function model(array $row)
     {
@@ -34,5 +36,27 @@ class SupplierImport implements ToModel, WithHeadingRow, SkipsEmptyRows
         $parts = array_filter($parts, fn ($v) => $v !== '');
 
         return array_values($parts);
+    }
+
+    public function rules(): array
+    {
+        return [
+            'location' => ['nullable', Rule::in(Supplier::LOCATIONS)],
+        ];
+    }
+
+    public function customValidationMessages(): array
+    {
+        return [
+            'location.in' => '"Location" must be exactly one of: '
+                . implode(', ', Supplier::LOCATIONS) . '.',
+        ];
+    }
+
+    public function customValidationAttributes(): array
+    {
+        return [
+            'location' => 'Location',
+        ];
     }
 }

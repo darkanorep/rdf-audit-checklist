@@ -13,6 +13,7 @@ class Supplier extends Model
 {
     use SoftDeletes, Filterable;
 
+    const LOCATIONS = ['Feedmill', 'Central Depot'];
     protected string $default_filters = SupplierFilter::class;
     protected function casts(): array
     {
