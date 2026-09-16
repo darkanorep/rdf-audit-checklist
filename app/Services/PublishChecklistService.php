@@ -113,7 +113,7 @@ class PublishChecklistService
 
         return match ($status) {
             'ongoing'      => !$isTrashed && !$hasFindings && !$hasFullyAnswered,
-            'consolidated' => !$isTrashed && $hasFullyAnswered,
+            'consolidated' => !$isTrashed && !$hasFindings && $hasFullyAnswered,
             'generated'    => !$isTrashed && $hasFindings,
             'closed'       => $isTrashed,
             default        => true,
