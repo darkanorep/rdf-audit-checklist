@@ -18,7 +18,7 @@ Route::post('login', [AuthController::class, 'login']);
 Route::middleware(['api-key'])->group(function () {
     Route::resource('pending-users', PendingUserController::class)->only(['index', 'store']);
     Route::post('changepass/{employeeId}', [PendingUserController::class, 'changePassword']);
-    Route::post('reset/{employeeId}', [PendingUserController::class, 'resetPassword']);
+    Route::patch('reset/{employeeId}', [PendingUserController::class, 'resetPassword']);
 });
 
 Route::middleware(['auth:sanctum'])->group(function () {

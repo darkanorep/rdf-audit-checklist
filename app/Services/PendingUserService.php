@@ -103,7 +103,7 @@ class PendingUserService
     public function changePassword(array $data, string $employeeId)
     {
         $user = $this->user->withTrashed()
-            ->where('employee_id', $employeeId)
+            ->where('username', $employeeId)
             ->first();
 
         if (!$user) {
@@ -123,7 +123,7 @@ class PendingUserService
     public function resetPassword(string $employeeId) {
 
         $user = $this->user->withTrashed()
-            ->where('employee_id', $employeeId)
+            ->where('username', $employeeId)
             ->first();
 
         if (!$user) {

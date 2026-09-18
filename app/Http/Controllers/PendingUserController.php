@@ -37,7 +37,7 @@ class PendingUserController extends Controller
     public function changePassword(Request $request, string $employeeId)
     {
         $data = $request->validate([
-            'password' => 'required|string|min:8',
+            'password' => 'required|string',
         ]);
 
         $user = $this->pendingUserService->changePassword($data, $employeeId);
