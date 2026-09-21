@@ -51,8 +51,9 @@ class CopyController extends Controller
             ? filter_var($request->input('is_answered'), FILTER_VALIDATE_INT)
             : null;
         $location = $request->input('location'); // string|null; input() already defaults to null
+        $isClosed = $request->boolean('is_closed', false);
 
-        $checklists = $this->copyService->getChecklist($userId, $perPage, $isAnswered, $location);
+        $checklists = $this->copyService->getChecklist($userId, $perPage, $isAnswered, $location, $isClosed);
 
         if ($checklists->isEmpty()) {
             return $this->responseNotFound('No published checklist found for the user.');

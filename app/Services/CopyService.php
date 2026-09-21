@@ -67,14 +67,13 @@ class CopyService
         ?int $userId = null,
         int $perPage = 15,
         ?int $isAnswered = null,
-        ?string $location = null
+        ?string $location = null,
+        ?bool $is_closed = null
     ) {
-        $baseQuery = fn () => Copy::when($userId !== null, function ($query) use ($userId) {
-                $query->whereJsonContains('checklist_user_ids', $userId);
-            })
-            ->when($location !== null, function ($query) use ($location) {
-                $query->where('information->location', $location);
-            });
+        $baseQuery = fn () => Copy::query()->withTrashed()
+            ->when($is_closed !== null, fn ($q) => $q->closed($is_closed))
+            ->when($userId !== null, fn ($q) => $q->whereJsonContains('checklist_user_ids', $userId))
+            ->when($location !== null, fn ($q) => $q->where('information->location', $location));
 
         $paginator = $baseQuery()->paginate($perPage);
 
@@ -447,7 +446,7 @@ class CopyService
 
         $supplierExpr = "JSON_UNQUOTE(JSON_EXTRACT(information, '$.supplier'))";
 
-        $result = Copy::withTrashed()
+        $result = Copy::query()
             ->whereJsonContains('checklist_user_ids', $userId)
             ->selectRaw("
             COUNT(*) as total_checklists,
@@ -490,7 +489,7 @@ class CopyService
         $completed = 0;
         $pending   = 0;
 
-        Copy::withTrashed()
+        Copy::query()
             ->when($userId !== null, function ($query) use ($userId) {
                 $query->whereJsonContains('checklist_user_ids', $userId);
             })

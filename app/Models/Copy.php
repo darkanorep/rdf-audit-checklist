@@ -6,6 +6,7 @@ use App\Filters\CopyFilter;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 
 #[Guarded([])]
 class Copy extends Model
@@ -29,6 +30,15 @@ class Copy extends Model
     public function responses()
     {
         return $this->hasMany(Response::class, 'copy_id');
+    }
+
+    public function scopeClosed(Builder $query, ?bool $closed): Builder
+    {
+        return match ($closed) {
+            true    => $query->onlyTrashed(),
+            false   => $query->withoutTrashed(),
+            default => $query,
+        };
     }
 }
 
