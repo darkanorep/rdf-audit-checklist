@@ -20,4 +20,8 @@ class PublishChecklistController extends Controller
 
         return response()->json($copies);
     }
+
+    public function statusCount() {
+        return $this->checklistService->getStatusBadge();
+    }
 }

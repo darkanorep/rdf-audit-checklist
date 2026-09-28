@@ -326,4 +326,63 @@ class PublishChecklistService
     {
         return Str::lower(trim($name)) . '|' . Str::lower(trim((string) $category));
     }
+
+    public function getStatusBadge(): array
+    {
+        $copies = Copy::query()
+            ->withTrashed()
+            ->with('findings')
+            ->get(['id', 'checklist', 'deleted_at']);
+
+        $copyIds = $copies->pluck('id');
+
+        $answeredKeysByCopy = Response::query()
+            ->whereIn('copy_id', $copyIds)
+            ->where('is_completed', true)
+            ->get(['copy_id', 'user_id', 'content'])
+            ->groupBy('copy_id')
+            ->map(function ($responses) {
+                return $responses->groupBy('user_id')->map(function ($userResponses) {
+                    return $userResponses->reduce(function (Collection $carry, Response $response) {
+                        $content = $response->content;
+
+                        if (!isset($content['name'])) {
+                            return $carry;
+                        }
+
+                        $key = $this->subItemKey($content['name'], $content['category'] ?? null);
+
+                        return $carry->put($key, true);
+                    }, collect());
+                });
+            });
+
+        $counts = [
+            'ongoing'      => 0,
+            'consolidated' => 0,
+            'generated'    => 0,
+            'closed'       => 0,
+        ];
+
+        $copies->each(function (Copy $copy) use ($answeredKeysByCopy, &$counts) {
+            $answeredKeysByUser = $answeredKeysByCopy->get($copy->id, collect());
+
+            $copy->setAttribute(
+                'checklist_summary',
+                $this->countsFromResponses($copy->checklist ?? [], $answeredKeysByUser)
+            );
+
+            $copy->setAttribute('is_closed', $copy->trashed());
+
+            foreach (array_keys($counts) as $status) {
+                if ($this->matchesStatus($copy, $status)) {
+                    $counts[$status]++;
+                }
+            }
+        });
+
+        return [
+            'badge' => $counts,
+        ];
+    }
 }

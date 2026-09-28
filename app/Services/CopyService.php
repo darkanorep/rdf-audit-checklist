@@ -449,18 +449,24 @@ class CopyService
         $result = Copy::query()
             ->whereJsonContains('checklist_user_ids', $userId)
             ->selectRaw("
-            COUNT(*) as total_checklists,
-            COUNT(DISTINCT CASE WHEN {$supplierExpr} IS NOT NULL THEN {$supplierExpr} END) as total_suppliers,
-            SUM(CASE WHEN EXISTS (
-                SELECT 1 FROM {$responsesTable}
-                WHERE {$responsesTable}.copy_id = {$copiesTable}.id
-                  AND {$responsesTable}.user_id = ?
-                  AND {$responsesTable}.is_completed = 1
-            ) THEN 1 ELSE 0 END) as total_responded
-        ", [$userId])
+        COUNT(*) as total_checklists,
+        COUNT(DISTINCT CASE WHEN {$supplierExpr} IS NOT NULL THEN {$supplierExpr} END) as total_suppliers,
+        SUM(CASE WHEN EXISTS (
+            SELECT 1 FROM {$responsesTable}
+            WHERE {$responsesTable}.copy_id = {$copiesTable}.id
+              AND {$responsesTable}.user_id = ?
+              AND {$responsesTable}.is_completed = 1
+        ) THEN 1 ELSE 0 END) as total_responded
+    ", [$userId])
             ->first();
 
         [$totalCompleted, $totalPending] = $this->countCompletedAndPending($userId);
+
+        $totalClosed = Copy::query()
+            ->withTrashed()
+            ->closed(true)
+            ->whereJsonContains('checklist_user_ids', $userId)
+            ->count();
 
         return [
             'total_checklists' => (int) $result->total_checklists,
@@ -468,6 +474,11 @@ class CopyService
             'total_responded'  => (int) $result->total_responded,
             'total_completed'  => $totalCompleted,
             'total_pending'    => $totalPending,
+            'badge' => [
+                'pending'     => $totalPending,
+                'consolidate' => $totalCompleted,
+                'closed'      => $totalClosed,
+            ],
         ];
     }
 
