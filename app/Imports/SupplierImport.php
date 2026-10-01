@@ -3,6 +3,7 @@
 namespace App\Imports;
 
 use App\Models\Supplier;
+use App\Rules\UniqueSupplierPerLocation;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Concerns\SkipsEmptyRows;
 use Maatwebsite\Excel\Concerns\ToModel;
@@ -38,20 +39,30 @@ class SupplierImport implements ToModel, WithHeadingRow, SkipsEmptyRows, WithVal
         return array_values($parts);
     }
 
+    public function prepareForValidation(array $data, int $index): array
+    {
+        // Validate exactly what will be stored
+        foreach (['business_name', 'location'] as $key) {
+            if (isset($data[$key]) && is_string($data[$key])) {
+                $data[$key] = trim($data[$key]);
+            }
+        }
+
+        return $data;
+    }
+
     public function rules(): array
     {
         return [
             'location'      => ['nullable', Rule::in(Supplier::LOCATIONS)],
-            'business_name' => ['required', 'string', Rule::unique('suppliers', 'name')],
+            'business_name' => ['required', 'string', 'max:255', new UniqueSupplierPerLocation()],
         ];
     }
 
     public function customValidationMessages(): array
     {
         return [
-            'location.in'           => '"Location" must be exactly one of: '
-                . implode(', ', Supplier::LOCATIONS) . '.',
-            'business_name.unique'  => 'The "Business Name" has already been taken.',
+            'location.in'            => '"Location" must be exactly one of: ' . implode(', ', Supplier::LOCATIONS) . '.',
             'business_name.required' => 'The "Business Name" is required.',
         ];
     }
