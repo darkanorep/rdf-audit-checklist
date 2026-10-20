@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use ImageKit\ImageKit;
 use InvalidArgumentException;
+use Illuminate\Http\UploadedFile;
 
 #[AllowDynamicProperties]
 class ResponseService
@@ -47,14 +48,16 @@ class ResponseService
             $now           = now();
             $completedAt   = $isCompleted ? $now : null;
 
-            $copy = Copy::whereKey($copyId)->lockForUpdate()->firstOrFail();
+            $copy      = Copy::whereKey($copyId)->lockForUpdate()->firstOrFail();
             $checklist = $copy->checklist ?? [];
 
             $incomingBatchNo = $data['batch_no'] ?? null;
 
+            $existing      = collect();   // old draft responses (only when editing a batch)
+            $oldImagesByUrl = collect();  // normalized url => image model
+            $claimedImageIds = [];        // old images re-attached to a new response
+
             if ($incomingBatchNo) {
-                // Overwriting an existing batch (draft edit). Verify it belongs
-                // to this copy+user and isn't already finalized before touching it.
                 $existing = Response::query()
                     ->where('copy_id', $copyId)
                     ->where('user_id', $userId)
@@ -74,20 +77,18 @@ class ResponseService
                     );
                 }
 
-                foreach ($existing as $oldResponse) {
-                    $this->deleteImages($oldResponse->images);
-                }
-
-                $existing->each->delete();
+                $oldImagesByUrl = $existing
+                    ->flatMap(fn (Response $r) => $r->images)
+                    ->keyBy(fn ($image) => $this->normalizeUrl($image->url));
 
                 $batchNo = $incomingBatchNo;
             } else {
-                // First-time save — generate a fresh batch_no.
                 $batchNo = $this->generateBatchNo($copyId);
             }
 
             $results = collect($contentItems)->map(function (array $content, int $index) use (
-                $copyId, $batchNo, $isCompleted, $completedAt, $now, $userId, $imagesByIndex
+                $copyId, $batchNo, $isCompleted, $completedAt, $now, $userId,
+                $imagesByIndex, $oldImagesByUrl, &$claimedImageIds
             ) {
                 $response = Response::create([
                     'copy_id'      => $copyId,
@@ -99,7 +100,31 @@ class ResponseService
                     'user_id'      => $userId,
                 ]);
 
-                $this->storeImages($imagesByIndex[$index] ?? [], $response->id);
+                // Split the payload: strings = existing image URLs, UploadedFile = new uploads.
+                $inputs = collect($imagesByIndex[$index] ?? []);
+                $urls   = $inputs->filter(fn ($i) => is_string($i))->values();
+                $files  = $inputs->filter(fn ($i) => $i instanceof UploadedFile)->values()->all();
+
+                if ($urls->isNotEmpty()) {
+                    $ids = $urls->map(function (string $url) use ($oldImagesByUrl) {
+                        $image = $oldImagesByUrl->get($this->normalizeUrl($url));
+
+                        if (! $image) {
+                            // Not part of this draft batch: reject instead of silently dropping.
+                            throw new InvalidArgumentException("Image \"{$url}\" does not belong to this batch.");
+                        }
+
+                        return $image->id;
+                    })->unique()->all();
+
+                    Image::whereKey($ids)->update(['response_id' => $response->id]);
+
+                    array_push($claimedImageIds, ...$ids);
+                }
+
+                $this->storeImages($files, $response->id);
+
+                $response->load('images');
 
                 return [
                     'copy_id'  => $response->copy_id,
@@ -109,8 +134,18 @@ class ResponseService
                 ];
             });
 
-            // Only evaluate/roll up is_answered on a real "Submit"
-            // (is_completed: 1), not a "Save as draft" (is_completed: 0).
+            // Draft -> final: the old draft rows are now superseded.
+            if ($isCompleted && $existing->isNotEmpty()) {
+                $orphans = $existing
+                    ->flatMap(fn (Response $r) => $r->images)
+                    ->reject(fn ($image) => in_array($image->id, $claimedImageIds, true));
+
+                Response::whereKey($existing->pluck('id'))->delete();
+
+                // File deletion can't be rolled back, so only do it once the commit succeeded.
+                DB::afterCommit(fn () => $this->deleteImages($orphans));
+            }
+
             if ($isCompleted) {
                 $touchedSections = collect($contentItems)->pluck('section')->filter()->unique();
                 $checklistDirty  = false;
@@ -129,6 +164,12 @@ class ResponseService
 
             return $results;
         });
+    }
+
+    private function normalizeUrl(string $url): string
+    {
+        // Tolerates host/scheme differences (CDN vs app URL, http vs https).
+        return ltrim(parse_url($url, PHP_URL_PATH) ?: $url, '/');
     }
 
     /**
