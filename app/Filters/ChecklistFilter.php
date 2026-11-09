@@ -6,7 +6,7 @@ namespace App\Filters;
 
 use Essa\APIToolKit\Filters\QueryFilters;
 
-class ChecklistFilter extends QueryFilters
+class ChecklistFilter extends BaseFilter
 {
     protected array $allowedFilters = ['title'];
 

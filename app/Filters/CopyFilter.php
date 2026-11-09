@@ -6,7 +6,7 @@ namespace App\Filters;
 
 use Essa\APIToolKit\Filters\QueryFilters;
 
-class CopyFilter extends QueryFilters
+class CopyFilter extends BaseFilter
 {
     protected array $allowedFilters = ['title'];
 
