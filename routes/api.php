@@ -23,7 +23,9 @@ Route::middleware(['api-key'])->group(function () {
 
 Route::middleware(['auth:sanctum'])->group(function () {
 
-    Route::group(['middleware' => 'can:admin'], function () {
+    Route::group([
+//        'middleware' => 'can:admin'
+    ], function () {
         Route::apiResource('users', UserController::class);
         Route::apiResource('roles', RoleController::class);
         Route::get('pending-users', [PendingUserController::class, 'index']);
