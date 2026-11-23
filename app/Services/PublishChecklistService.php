@@ -21,24 +21,29 @@ class PublishChecklistService
      * so it stays accurate even if checklist.is_answered lags behind.
      */
 
+
     public function paginateWithSummary(array $filters = [])
     {
-        $perPage = $filters['perPage'] ?? 15;
+        $perPage = max(1, (int) ($filters['per_page'] ?? 15));
         $status  = $filters['status'] ?? null;
-        $page    = $filters['page'] ?? (int) request()->get('page', 1);
+        $page    = max(1, (int) ($filters['page'] ?? request()->get('page', 1)));
 
-        $paginator = Copy::query()
+        // Load the full collection so status filtering happens before pagination.
+        $copies = Copy::query()
             ->withTrashed()
             ->with([
                 'findings' => function ($query) {
                     $query->with(['observers' => function ($query) {
-                        $query->select('users.id', DB::raw("CONCAT(first_name, ' ', last_name) as full_name"));
+                        $query->select(
+                            'users.id',
+                            DB::raw("CONCAT(first_name, ' ', last_name) as full_name")
+                        );
                     }]);
-                }
+                },
             ])
-            ->paginate($perPage);
+            ->get();
 
-        $copyIds = $paginator->getCollection()->pluck('id');
+        $copyIds = $copies->pluck('id');
 
         $answeredKeysByCopy = Response::query()
             ->whereIn('copy_id', $copyIds)
@@ -47,26 +52,35 @@ class PublishChecklistService
             ->groupBy('copy_id')
             ->map(function ($responses) {
                 return $responses->groupBy('user_id')->map(function ($userResponses) {
-                    return $userResponses->reduce(function (Collection $carry, Response $response) {
-                        $content = $response->content;
+                    return $userResponses->reduce(
+                        function (Collection $carry, Response $response) {
+                            $content = $response->content;
 
-                        if (!isset($content['name'])) {
-                            return $carry;
-                        }
+                            if (! isset($content['name'])) {
+                                return $carry;
+                            }
 
-                        $key = $this->subItemKey($content['name'], $content['category'] ?? null);
+                            $key = $this->subItemKey(
+                                $content['name'],
+                                $content['category'] ?? null
+                            );
 
-                        return $carry->put($key, true); // presence is all we need for counts
-                    }, collect());
+                            return $carry->put($key, true);
+                        },
+                        collect()
+                    );
                 });
             });
 
-        $paginator->getCollection()->transform(function (Copy $copy) use ($answeredKeysByCopy) {
+        $copies->transform(function (Copy $copy) use ($answeredKeysByCopy) {
             $answeredKeysByUser = $answeredKeysByCopy->get($copy->id, collect());
 
             $copy->setAttribute(
                 'checklist_summary',
-                $this->countsFromResponses($copy->checklist ?? [], $answeredKeysByUser)
+                $this->countsFromResponses(
+                    $copy->checklist ?? [],
+                    $answeredKeysByUser
+                )
             );
 
             $copy->setAttribute('is_closed', $copy->trashed());
@@ -74,27 +88,22 @@ class PublishChecklistService
             return $copy;
         });
 
-        if (!$status) {
-            return $paginator;
-        }
-
-        // Filter the current page's items in memory (cheap — already loaded).
-        $filtered = $paginator->getCollection()->filter(
-            fn (Copy $copy) => $this->matchesStatus($copy, $status)
-        )->values();
-
-        // Recompute the TRUE total across the whole table using the same rule,
-        // so total()/lastPage() stop lying once filtering drops rows.
-        $realTotal = $this->countByStatus($status);
+        // Filter all copies before slicing the requested page.
+        $matchingCopies = ($status === null || $status === '')
+            ? $copies->values()
+            : $copies
+                ->filter(fn (Copy $copy) => $this->matchesStatus($copy, $status))
+                ->values();
 
         return new LengthAwarePaginator(
-            $filtered,
-            $realTotal,
+            $matchingCopies->forPage($page, $perPage)->values(),
+            $matchingCopies->count(),
             $perPage,
             $page,
             [
-                'path'     => $paginator->path(),
+                'path'     => LengthAwarePaginator::resolveCurrentPath(),
                 'pageName' => 'page',
+                'query'    => request()->query(),
             ]
         );
     }
