@@ -70,14 +70,23 @@ class CopyService
         ?string $location = null,
         ?bool $is_closed = null
     ) {
-        $baseQuery = fn () => Copy::query()->withTrashed()
+        $perPage = max(1, $perPage);
+        $page = LengthAwarePaginator::resolveCurrentPage();
+
+        $copies = Copy::query()
+            ->withTrashed()
             ->when($is_closed !== null, fn ($q) => $q->closed($is_closed))
-            ->when($userId !== null, fn ($q) => $q->whereJsonContains('checklist_user_ids', $userId))
-            ->when($location !== null, fn ($q) => $q->where('information->location', $location));
+            ->when(
+                $userId !== null,
+                fn ($q) => $q->whereJsonContains('checklist_user_ids', $userId)
+            )
+            ->when(
+                $location !== null,
+                fn ($q) => $q->where('information->location', $location)
+            )
+            ->get();
 
-        $paginator = $baseQuery()->paginate($perPage);
-
-        $copyIds = $paginator->getCollection()->pluck('id');
+        $copyIds = $copies->pluck('id');
 
         $answersByCopy = Response::query()
             ->whereIn('copy_id', $copyIds)
@@ -89,46 +98,45 @@ class CopyService
             ->get()
             ->groupBy(['copy_id', 'user_id'])
             ->map(function ($byUser) {
-                return $byUser->map(fn ($responses) => $this->buildAnswerIndex($responses));
+                return $byUser->map(
+                    fn ($responses) => $this->buildAnswerIndex($responses)
+                );
             });
 
-        $filtered = $paginator->getCollection()
+        $matchingCopies = $copies
             ->map(function (Copy $copy) use ($userId, $answersByCopy) {
                 $answersByUser = $answersByCopy->get($copy->id, collect());
 
-                // Sections are no longer pruned by is_answered here.
-                $sections = $this->applySectionsAndAnswers($copy->checklist, $userId, $answersByUser);
-
-                $copy->setAttribute('checklist', $sections);
+                $copy->setAttribute(
+                    'checklist',
+                    $this->applySectionsAndAnswers(
+                        $copy->checklist,
+                        $userId,
+                        $answersByUser
+                    )
+                );
 
                 return $copy;
             })
             ->reject(fn (Copy $copy) => empty($copy->checklist))
             ->when($isAnswered !== null, function ($copies) use ($isAnswered) {
-                // Whole-checklist decision: keep only copies whose aggregate
-                // answered-state (ALL sections answered) matches the request.
                 return $copies->filter(
-                    fn (Copy $copy) => $this->isChecklistFullyAnswered($copy->checklist) === (bool) $isAnswered
+                    fn (Copy $copy) =>
+                        $this->isChecklistFullyAnswered($copy->checklist)
+                        === (bool) $isAnswered
                 );
             })
             ->values();
 
-        if ($isAnswered === null) {
-            // No checklist-level filter applied — original count is already correct.
-            $paginator->setCollection($filtered);
-            return $paginator;
-        }
-
-        $realTotal = $this->countMatchingChecklists($baseQuery(), $userId, $isAnswered);
-
         return new LengthAwarePaginator(
-            $filtered,
-            $realTotal,
+            $matchingCopies->forPage($page, $perPage)->values(),
+            $matchingCopies->count(),
             $perPage,
-            $paginator->currentPage(),
+            $page,
             [
-                'path'     => $paginator->path(),
+                'path'     => LengthAwarePaginator::resolveCurrentPath(),
                 'pageName' => 'page',
+                'query'    => request()->query(),
             ]
         );
     }
