@@ -129,7 +129,7 @@ class CopyService
             ->values();
 
         return new LengthAwarePaginator(
-            $matchingCopies->forPage($page, $perPage)->values(),
+            $matchingCopies->sortByDesc('updated_at')->forPage($page, $perPage)->values(),
             $matchingCopies->count(),
             $perPage,
             $page,
