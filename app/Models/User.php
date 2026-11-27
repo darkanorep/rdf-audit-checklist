@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Builder;
 
 #[Guarded([])]
 #[Hidden(['password', 'remember_token'])]
@@ -33,5 +34,12 @@ class User extends Authenticatable
     public function role()
     {
         return $this->hasOne(Role::class, 'id', 'role_id')->withTrashed();
+    }
+
+    public function scopeNotAdmin(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('role', function (Builder $roleQuery) {
+            $roleQuery->where('name', 'Admin');
+        });
     }
 }

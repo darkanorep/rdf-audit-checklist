@@ -10,8 +10,18 @@ use Illuminate\Support\Facades\Hash;
 class UserService
 {
     public function __construct(private readonly PendingUser $pendingUser) {}
-    public function getUsers() {
-        return User::with(['role'])->orderBy('updated_at', 'desc')->useFilters()->dynamicPaginate();
+    public function getUsers(bool $excludeAdmin = false)
+    {
+        $query = User::with('role');
+
+        if ($excludeAdmin) {
+            $query->notAdmin();
+        }
+
+        return $query
+            ->orderBy('updated_at', 'desc')
+            ->useFilters()
+            ->dynamicPaginate();
     }
 
     public function createUser(array $data): User
